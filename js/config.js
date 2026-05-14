@@ -2,18 +2,17 @@
 
 const CONFIG = {
   // Google Apps Script Web App URL (หลัง deploy แล้ว copy มาวางตรงนี้)
-  SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbyxZiX6GfBeaXlCO9LSNkAV6u3aPmo0st4lkMA61owEgvsaA0kLZaJhZzJs818-wS8a/exec',
+  SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbxSplsBYicuKr2IBBJeuE3oclBMy4AGkjRv0IbKmOMigyiBrnP0MmbMPu2C_fJ1Aswy/exec',
 
   // Google OAuth Client ID (จาก Google Cloud Console)
-  GOOGLE_CLIENT_ID: '921804252606-oebjar2gqt4b7kp8j99ur3nnm5h5sc8t.apps.googleusercontent.com',
+  GOOGLE_CLIENT_ID: '921804252606-5tepbu13r8q4e61d9ktcbs7tfmkpaebt.apps.googleusercontent.com',
 
   // Domain อีเมลโรงเรียน (ถ้าไม่จำกัด domain ให้ใส่ '')
   SCHOOL_EMAIL_DOMAIN: '',
 
   // ตำแหน่งโรงเรียน (latitude, longitude)
-  SCHOOL_LAT: 16.3959378,
-  SCHOOL_LNG: 103.3700793,
-
+  SCHOOL_LAT: 16.4151767,
+  SCHOOL_LNG: 103.3632565,
   // รัศมี GPS (เมตร) — 100 = ต้องอยู่ในรัศมี 100 เมตร
   GPS_RADIUS_METERS: 100,
 
@@ -25,7 +24,7 @@ const CONFIG = {
   ENABLE_GPS_CHECK: true,
 
   // ใช้ Face Recognition ไหม — false = ข้ามขั้นตอนนี้
-  ENABLE_FACE_CHECK: true,
+  ENABLE_FACE_CHECK: false,
 
   // Face Recognition threshold (ยิ่งน้อยยิ่งเข้มงวด: 0.4–0.6)
   FACE_MATCH_THRESHOLD: 0.5,

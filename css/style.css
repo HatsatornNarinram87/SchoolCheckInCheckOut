@@ -38,6 +38,7 @@ body {
   align-items: center;
   justify-content: center;
   padding: 24px 16px;
+  overflow-y: auto;
 }
 
 /* ── Loading ── */
@@ -369,6 +370,54 @@ body {
 .btn-secondary { background: #E3F2FD; color: var(--primary); }
 .btn-secondary:hover { background: #BBDEFB; }
 .hidden { display: none !important; }
+
+/* ── Action Screen ── */
+.action-card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 32px 24px;
+  width: 100%;
+  max-width: 380px;
+  text-align: center;
+}
+.action-avatar { font-size: 56px; margin-bottom: 8px; }
+.action-name { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+.action-email { font-size: 12px; color: var(--text-secondary); margin-bottom: 20px; }
+.action-status-box {
+  background: #F5F5F5;
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  line-height: 1.8;
+}
+.action-status-box .status-row { display: flex; justify-content: space-between; }
+.action-status-box .status-label { color: var(--text-secondary); }
+.action-status-box .status-val { font-weight: 700; }
+.action-buttons { display: flex; flex-direction: column; gap: 10px; }
+.btn-checkout {
+  background: #FFEBEE;
+  color: var(--error);
+  border: none;
+  border-radius: 50px;
+  padding: 14px 28px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: 100%;
+}
+.btn-checkout:hover { background: #FFCDD2; }
+.btn-checkout:disabled, .btn-checkin-action:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.success-workhours {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-top: 6px;
+}
 
 /* ── Toast ── */
 .toast {

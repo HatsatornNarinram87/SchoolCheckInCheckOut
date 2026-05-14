@@ -45,7 +45,10 @@ const FaceRec = (() => {
       audio: false,
     });
     videoEl.srcObject = _stream;
-    return new Promise((res) => { videoEl.onloadedmetadata = () => res(); });
+    return new Promise((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error('กล้องไม่ตอบสนอง — ลองรีเฟรชหน้า')), 10000);
+      videoEl.onloadedmetadata = () => { clearTimeout(t); resolve(); };
+    });
   }
 
   // ปิดกล้อง

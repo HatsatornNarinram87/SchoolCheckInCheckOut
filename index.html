@@ -25,7 +25,7 @@
   <div class="login-card">
     <div class="logo">🏫</div>
     <h1>ระบบเช็คชื่อครู</h1>
-    <p class="subtitle">โรงเรียนสาธิต</p>
+    <p class="subtitle">โรงเรียนผดุงราษฎร์</p>
 
     <!-- Google Sign-In button (render โดย JS หลัง GSI โหลด) -->
     <div id="google-signin-btn"></div>
@@ -63,15 +63,33 @@
   </div>
 </div>
 
+<!-- Screen: Check In / Check Out Selection -->
+<div id="screen-action" class="screen">
+  <div class="action-card">
+    <div class="action-user">
+      <div class="action-avatar">👤</div>
+      <p id="action-name" class="action-name"></p>
+      <p id="action-email" class="action-email"></p>
+    </div>
+    <div id="action-status-box" class="action-status-box"></div>
+    <div class="action-buttons">
+      <button id="btn-checkin-action" class="btn btn-primary">🟢 เช็คชื่อเข้างาน</button>
+      <button id="btn-checkout-action" class="btn btn-checkout">🔴 เช็คออก</button>
+    </div>
+    <button id="btn-action-logout" class="btn btn-secondary" style="margin-top:8px">ออกจากระบบ</button>
+  </div>
+</div>
+
 <!-- Screen: Success -->
 <div id="screen-success" class="screen">
   <div class="success-card">
-    <div class="success-icon">✅</div>
-    <h2>เช็คชื่อสำเร็จ!</h2>
+    <div id="success-icon" class="success-icon">✅</div>
+    <h2 id="success-title">เช็คชื่อสำเร็จ!</h2>
     <div class="success-info">
       <p id="success-name" class="success-name"></p>
       <p id="success-time" class="success-time"></p>
       <p id="success-type" class="success-badge"></p>
+      <p id="success-workhours" class="success-workhours hidden"></p>
     </div>
     <button id="btn-done" class="btn btn-primary">เสร็จสิ้น</button>
   </div>
@@ -115,7 +133,6 @@
 <!-- Toast Notification -->
 <div id="toast" class="toast hidden"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 <script src="js/config.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/gps.js"></script>

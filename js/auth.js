@@ -49,18 +49,31 @@ const Auth = (() => {
   function signOut() {
     _user = null;
     sessionStorage.removeItem('teacher_session');
-    google?.accounts?.id?.disableAutoSelect?.();
+    try {
+      google.accounts.id.disableAutoSelect();
+      google.accounts.id.cancel();
+    } catch (e) {}
   }
 
   function getUser() { return _user; }
   function isLoggedIn() { return !!_user; }
 
   function _parseJwt(token) {
-    try { return JSON.parse(atob(token.split('.')[1])); } catch (e) { return null; }
+    try {
+      let base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+      while (base64.length % 4) base64 += '=';
+      // atob คืน binary string — ต้องแปลง UTF-8 bytes ให้ถูกต้องก่อน JSON.parse
+      const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+      return JSON.parse(new TextDecoder().decode(bytes));
+    } catch (e) { return null; }
   }
 
   function _checkAdmin(email) {
-    const admins = ['admin@school.ac.th', 'principal@school.ac.th'];
+    const admins = [
+      'admin@school.ac.th',
+      'principal@school.ac.th',
+      'hatsatorn.narinram87@gmail.com',
+    ];
     return admins.includes(email);
   }
 

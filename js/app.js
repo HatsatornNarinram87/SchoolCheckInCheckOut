@@ -47,6 +47,8 @@ const App = (() => {
         google.accounts.id.initialize({
           client_id: CONFIG.GOOGLE_CLIENT_ID,
           callback: window.handleGoogleSignIn,
+          auto_select: false,
+          cancel_on_tap_outside: true,
         });
         google.accounts.id.renderButton(
           document.getElementById('google-signin-btn'),
@@ -74,15 +76,17 @@ const App = (() => {
         _teachers = [];
       }
 
-      // โหลด Face Recognition models (ถ้าไม่มี models folder ก็ข้ามได้)
-      try {
-        await FaceRec.loadModels((status) => {
-          document.querySelector('#screen-loading p').textContent = status;
-        });
-        await FaceRec.loadTeacherDescriptors(_teachers);
-      } catch (e) {
-        console.warn('Face models not available:', e.message);
-        CONFIG.ENABLE_FACE_CHECK = false;
+      // โหลด Face Recognition models เฉพาะเมื่อเปิดใช้งาน
+      if (CONFIG.ENABLE_FACE_CHECK) {
+        try {
+          await FaceRec.loadModels((status) => {
+            document.querySelector('#screen-loading p').textContent = status;
+          });
+          await FaceRec.loadTeacherDescriptors(_teachers);
+        } catch (e) {
+          console.warn('Face models not available:', e.message);
+          CONFIG.ENABLE_FACE_CHECK = false;
+        }
       }
 
       if (_currentUser.isAdmin) {
@@ -134,11 +138,71 @@ const App = (() => {
     };
   }
 
+  // ── Action Screen (เช็คชื่อ / เช็คออก) ──
+  async function _showActionScreen() {
+    showScreen('loading');
+    document.querySelector('#screen-loading p').textContent = 'ตรวจสอบสถานะ...';
+
+    let status = { status: 'none' };
+    try { status = await API.getMyStatus(); } catch (e) {
+      toast('ไม่สามารถตรวจสอบสถานะได้ — แสดงข้อมูลชั่วคราว', 'warning', 4000);
+    }
+
+    showScreen('action');
+    document.getElementById('action-name').textContent = status.name || _currentUser.name || _currentUser.email.split('@')[0];
+    document.getElementById('action-email').textContent = _currentUser.email;
+
+    const checkinBtn  = document.getElementById('btn-checkin-action');
+    const checkoutBtn = document.getElementById('btn-checkout-action');
+    const statusBox   = document.getElementById('action-status-box');
+
+    // reset ทุกครั้งก่อน set ใหม่
+    checkinBtn.disabled  = false;
+    checkoutBtn.disabled = false;
+
+    if (status.status === 'none') {
+      statusBox.innerHTML = '<div class="status-row"><span class="status-label">สถานะวันนี้</span><span class="status-val" style="color:var(--text-secondary)">ยังไม่ได้เช็คชื่อ</span></div>';
+      checkoutBtn.disabled = true;
+    } else if (status.status === 'checkedIn') {
+      statusBox.innerHTML = `
+        <div class="status-row"><span class="status-label">เข้างาน</span><span class="status-val" style="color:var(--success)">${status.checkInTime}</span></div>
+        <div class="status-row"><span class="status-label">ออกงาน</span><span class="status-val" style="color:var(--text-secondary)">ยังไม่ได้เช็คออก</span></div>`;
+      checkinBtn.disabled = true;
+    } else if (status.status === 'completed') {
+      statusBox.innerHTML = `
+        <div class="status-row"><span class="status-label">เข้างาน</span><span class="status-val" style="color:var(--success)">${status.checkInTime}</span></div>
+        <div class="status-row"><span class="status-label">ออกงาน</span><span class="status-val" style="color:var(--error)">${status.checkOutTime}</span></div>
+        <div class="status-row"><span class="status-label">ชั่วโมงงาน</span><span class="status-val">${status.workHours || '-'}</span></div>`;
+      checkinBtn.disabled = true;
+      checkoutBtn.disabled = true;
+    }
+
+    checkinBtn.onclick = async () => {
+      showScreen('loading');
+      document.querySelector('#screen-loading p').textContent = 'กำลังบันทึกการเข้างาน...';
+      await _doCheckin(_currentUser.email, 'manual');
+    };
+    checkoutBtn.onclick = async () => {
+      showScreen('loading');
+      document.querySelector('#screen-loading p').textContent = 'กำลังบันทึกการออกงาน...';
+      await _doCheckout(_currentUser.email, 'manual');
+    };
+    document.getElementById('btn-action-logout').onclick = () => {
+      Auth.signOut();
+      showScreen('login');
+      try {
+        google.accounts.id.renderButton(
+          document.getElementById('google-signin-btn'),
+          { theme: 'outline', size: 'large', shape: 'pill', locale: 'th', width: 280 }
+        );
+      } catch (e) {}
+    };
+  }
+
   // ── Face Scan ──
   async function _startFaceScan() {
-    // ถ้าปิด Face Check → เช็คชื่อด้วย email จาก Google login ทันที
     if (!CONFIG.ENABLE_FACE_CHECK) {
-      await _doCheckin(_currentUser.email, 'manual');
+      await _showActionScreen();
       return;
     }
     showScreen('face');
@@ -180,10 +244,29 @@ const App = (() => {
         lng: _gpsResult?.position?.lng,
       };
       const res = await API.checkIn(payload);
+      if (res.alreadyChecked) {
+        toast('เช็คชื่อแล้ววันนี้', 'warning', 3000);
+        await _showActionScreen();
+        return;
+      }
       _showSuccess(res);
     } catch (e) {
       toast('บันทึกไม่สำเร็จ: ' + e.message, 'error');
-      setTimeout(() => showScreen('face'), 2000);
+      setTimeout(() => showScreen('login'), 2000);
+    }
+  }
+
+  async function _doCheckout(email, method) {
+    try {
+      const res = await API.checkOut({
+        email, method,
+        lat: _gpsResult?.position?.lat,
+        lng: _gpsResult?.position?.lng,
+      });
+      _showSuccess(res, 'checkout');
+    } catch (e) {
+      toast('เช็คออกไม่สำเร็จ: ' + e.message, 'error');
+      setTimeout(() => showScreen('action'), 2000);
     }
   }
 
@@ -196,23 +279,51 @@ const App = (() => {
   }
 
   // ── Success Screen ──
-  function _showSuccess(data) {
+  function _showSuccess(data, type = 'checkin') {
     showScreen('success');
-    document.getElementById('success-name').textContent = data.name || _currentUser?.name;
-    const time = new Date(data.timestamp || Date.now());
-    document.getElementById('success-time').textContent =
-      time.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+    const isCheckout = type === 'checkout';
+
+    document.getElementById('success-icon').textContent = isCheckout ? '👋' : '✅';
+    document.getElementById('success-title').textContent = isCheckout ? 'เช็คออกสำเร็จ!' : 'เช็คชื่อสำเร็จ!';
+    document.getElementById('success-name').textContent = data.name || _currentUser?.name || _currentUser?.email?.split('@')[0];
+
+    const timeVal = isCheckout ? data.checkOutTime : data.checkInTime;
+    const time = timeVal || new Date(data.timestamp || Date.now()).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+    document.getElementById('success-time').textContent = time;
+
     const badge = document.getElementById('success-type');
-    if (data.isLate) {
+    badge.removeAttribute('style');
+    if (isCheckout) {
+      badge.textContent = 'ออกงาน';
+      badge.className = 'success-badge';
+      badge.style.background = '#FFEBEE';
+      badge.style.color = 'var(--error)';
+    } else if (data.isLate) {
       badge.textContent = 'มาสาย';
       badge.className = 'success-badge late';
     } else {
       badge.textContent = 'มาตรงเวลา';
       badge.className = 'success-badge';
     }
+
+    const workhours = document.getElementById('success-workhours');
+    if (isCheckout && data.workHours) {
+      workhours.textContent = 'ชั่วโมงงาน: ' + data.workHours;
+      workhours.classList.remove('hidden');
+    } else {
+      workhours.classList.add('hidden');
+    }
+
     document.getElementById('btn-done').onclick = () => {
       Auth.signOut();
       showScreen('login');
+      // Re-render Google Sign-In button หลัง signout
+      try {
+        google.accounts.id.renderButton(
+          document.getElementById('google-signin-btn'),
+          { theme: 'outline', size: 'large', shape: 'pill', locale: 'th', width: 280 }
+        );
+      } catch (e) {}
     };
   }
 
@@ -230,7 +341,7 @@ const App = (() => {
 
   function _setupAdminTabs() {
     document.querySelectorAll('.tab-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
+      btn.onclick = () => {
         document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
         btn.classList.add('active');
         document.querySelectorAll('.tab-content').forEach((c) => c.classList.add('hidden'));
@@ -239,7 +350,7 @@ const App = (() => {
           FaceRec.stopCamera();
           _adminCameraActive = false;
         }
-      });
+      };
     });
   }
 
