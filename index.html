@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="theme-color" content="#1565C0" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>ระบบเช็คชื่อครู</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<!-- Screen: Loading -->
+<div id="screen-loading" class="screen active">
+  <div class="loading-center">
+    <div class="spinner"></div>
+    <p>กำลังโหลด...</p>
+  </div>
+</div>
+
+<!-- Screen: Login -->
+<div id="screen-login" class="screen">
+  <div class="login-card">
+    <div class="logo">🏫</div>
+    <h1>ระบบเช็คชื่อครู</h1>
+    <p class="subtitle">โรงเรียนสาธิต</p>
+    <button id="btn-google-login" class="btn btn-google">
+      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" />
+      เข้าสู่ระบบด้วย Google
+    </button>
+    <p class="login-note">* เฉพาะอีเมลโรงเรียนเท่านั้น</p>
+  </div>
+</div>
+
+<!-- Screen: GPS Check -->
+<div id="screen-gps" class="screen">
+  <div class="check-card">
+    <div class="check-icon" id="gps-icon">📍</div>
+    <h2>ตรวจสอบตำแหน่ง</h2>
+    <p id="gps-status">กำลังตรวจสอบ GPS...</p>
+    <div class="progress-bar"><div class="progress-fill" id="gps-progress"></div></div>
+    <button id="btn-retry-gps" class="btn btn-secondary hidden">ลองใหม่</button>
+  </div>
+</div>
+
+<!-- Screen: Face Scan -->
+<div id="screen-face" class="screen">
+  <div class="face-container">
+    <h2>สแกนใบหน้า</h2>
+    <div class="camera-wrapper">
+      <video id="video" autoplay muted playsinline></video>
+      <canvas id="canvas-overlay"></canvas>
+      <div class="face-guide">
+        <div class="face-oval"></div>
+        <p id="face-hint">จัดใบหน้าให้อยู่ในกรอบ</p>
+      </div>
+    </div>
+    <p id="face-status" class="face-status">กำลังโหลด Face Recognition...</p>
+    <button id="btn-manual-checkin" class="btn btn-secondary hidden">เช็คชื่อแบบ Manual</button>
+  </div>
+</div>
+
+<!-- Screen: Success -->
+<div id="screen-success" class="screen">
+  <div class="success-card">
+    <div class="success-icon">✅</div>
+    <h2>เช็คชื่อสำเร็จ!</h2>
+    <div class="success-info">
+      <p id="success-name" class="success-name"></p>
+      <p id="success-time" class="success-time"></p>
+      <p id="success-type" class="success-badge"></p>
+    </div>
+    <button id="btn-done" class="btn btn-primary">เสร็จสิ้น</button>
+  </div>
+</div>
+
+<!-- Screen: Admin Dashboard -->
+<div id="screen-admin" class="screen">
+  <div class="admin-header">
+    <h2>แดชบอร์ด Admin</h2>
+    <button id="btn-logout" class="btn-icon">🚪</button>
+  </div>
+  <div class="admin-tabs">
+    <button class="tab-btn active" data-tab="today">วันนี้</button>
+    <button class="tab-btn" data-tab="register">ลงทะเบียนครู</button>
+    <button class="tab-btn" data-tab="report">รายงาน</button>
+  </div>
+  <div id="tab-today" class="tab-content active">
+    <div id="today-summary" class="summary-cards"></div>
+    <div id="today-list" class="attendance-list"></div>
+  </div>
+  <div id="tab-register" class="tab-content hidden">
+    <div class="register-form">
+      <h3>เพิ่มครูใหม่</h3>
+      <input type="text" id="reg-name" placeholder="ชื่อ-นามสกุล" class="input-field" />
+      <input type="email" id="reg-email" placeholder="อีเมลโรงเรียน" class="input-field" />
+      <input type="text" id="reg-subject" placeholder="วิชาที่สอน" class="input-field" />
+      <button id="btn-capture-face" class="btn btn-secondary">📷 ถ่ายรูปใบหน้า</button>
+      <div id="face-preview" class="face-preview hidden"></div>
+      <button id="btn-save-teacher" class="btn btn-primary">บันทึก</button>
+    </div>
+  </div>
+  <div id="tab-report" class="tab-content hidden">
+    <div class="report-controls">
+      <input type="month" id="report-month" class="input-field" />
+      <button id="btn-export" class="btn btn-primary">ส่งออก Google Sheets</button>
+    </div>
+    <div id="report-table"></div>
+  </div>
+</div>
+
+<!-- Toast Notification -->
+<div id="toast" class="toast hidden"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/gps.js"></script>
+<script src="js/face.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
