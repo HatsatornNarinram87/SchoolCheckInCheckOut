@@ -2,17 +2,17 @@
 
 const CONFIG = {
   // Google Apps Script Web App URL (หลัง deploy แล้ว copy มาวางตรงนี้)
-  SCRIPT_URL: 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec',
+  SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbyxZiX6GfBeaXlCO9LSNkAV6u3aPmo0st4lkMA61owEgvsaA0kLZaJhZzJs818-wS8a/exec',
 
   // Google OAuth Client ID (จาก Google Cloud Console)
-  GOOGLE_CLIENT_ID: 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com',
+  GOOGLE_CLIENT_ID: '921804252606-oebjar2gqt4b7kp8j99ur3nnm5h5sc8t.apps.googleusercontent.com',
 
   // Domain อีเมลโรงเรียน (ถ้าไม่จำกัด domain ให้ใส่ '')
   SCHOOL_EMAIL_DOMAIN: '',
 
   // ตำแหน่งโรงเรียน (latitude, longitude)
-  SCHOOL_LAT: 13.7563,
-  SCHOOL_LNG: 100.5018,
+  SCHOOL_LAT: 16.3959378,
+  SCHOOL_LNG: 103.3700793,
 
   // รัศมี GPS (เมตร) — 100 = ต้องอยู่ในรัศมี 100 เมตร
   GPS_RADIUS_METERS: 100,

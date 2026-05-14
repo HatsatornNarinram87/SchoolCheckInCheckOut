@@ -26,10 +26,11 @@
     <div class="logo">🏫</div>
     <h1>ระบบเช็คชื่อครู</h1>
     <p class="subtitle">โรงเรียนสาธิต</p>
-    <button id="btn-google-login" class="btn btn-google">
-      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" />
-      เข้าสู่ระบบด้วย Google
-    </button>
+
+    <!-- Google Sign-In button (render โดย JS หลัง GSI โหลด) -->
+    <div id="google-signin-btn"></div>
+
+    <p id="login-error" style="color:#C62828;font-size:13px;margin-top:12px;display:none;"></p>
     <p class="login-note">* เฉพาะอีเมลโรงเรียนเท่านั้น</p>
   </div>
 </div>

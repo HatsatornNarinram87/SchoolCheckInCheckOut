@@ -24,37 +24,66 @@ const App = (() => {
   // ── Init ──
   async function init() {
     showScreen('loading');
-
-    // ตรวจ session เดิม
-    _currentUser = Auth.getUser();
-    if (_currentUser) {
-      await _postLogin();
-      return;
+    try {
+      Auth.init(_onSignIn);
+      _currentUser = Auth.getUser();
+      if (_currentUser) {
+        await _postLogin();
+        return;
+      }
+      await _loadGSI();
+      showScreen('login');
+    } catch (e) {
+      console.error('Init error:', e);
+      showScreen('login');
     }
-
-    // หน้า login
-    showScreen('login');
-    document.getElementById('btn-google-login').addEventListener('click', _handleLogin);
-    await Auth.init();
   }
 
-  async function _handleLogin() {
-    try {
-      _currentUser = await Auth.signIn();
-      await _postLogin();
-    } catch (e) {
-      toast(e.message, 'error');
-    }
+  function _loadGSI() {
+    return new Promise((resolve) => {
+      const s = document.createElement('script');
+      s.src = 'https://accounts.google.com/gsi/client';
+      s.onload = () => {
+        google.accounts.id.initialize({
+          client_id: CONFIG.GOOGLE_CLIENT_ID,
+          callback: window.handleGoogleSignIn,
+        });
+        google.accounts.id.renderButton(
+          document.getElementById('google-signin-btn'),
+          { theme: 'outline', size: 'large', shape: 'pill', locale: 'th', width: 280 }
+        );
+        resolve();
+      };
+      document.head.appendChild(s);
+    });
+  }
+
+  async function _onSignIn(user) {
+    _currentUser = user;
+    await _postLogin();
   }
 
   async function _postLogin() {
     showScreen('loading');
     try {
-      _teachers = await API.getTeachers();
-      await FaceRec.loadModels((status) => {
-        document.querySelector('#screen-loading p').textContent = status;
-      });
-      await FaceRec.loadTeacherDescriptors(_teachers);
+      // โหลดรายชื่อครู (ถ้า API ยังไม่ตั้งค่า ให้ใช้ array ว่าง)
+      try {
+        _teachers = await API.getTeachers();
+      } catch (e) {
+        console.warn('getTeachers failed (API not configured?):', e.message);
+        _teachers = [];
+      }
+
+      // โหลด Face Recognition models (ถ้าไม่มี models folder ก็ข้ามได้)
+      try {
+        await FaceRec.loadModels((status) => {
+          document.querySelector('#screen-loading p').textContent = status;
+        });
+        await FaceRec.loadTeacherDescriptors(_teachers);
+      } catch (e) {
+        console.warn('Face models not available:', e.message);
+        CONFIG.ENABLE_FACE_CHECK = false;
+      }
 
       if (_currentUser.isAdmin) {
         await _showAdmin();
@@ -62,7 +91,7 @@ const App = (() => {
         await _startGpsCheck();
       }
     } catch (e) {
-      toast('โหลดข้อมูลล้มเหลว: ' + e.message, 'error', 5000);
+      toast('เกิดข้อผิดพลาด: ' + e.message, 'error', 5000);
       showScreen('login');
     }
   }
@@ -107,6 +136,11 @@ const App = (() => {
 
   // ── Face Scan ──
   async function _startFaceScan() {
+    // ถ้าปิด Face Check → เช็คชื่อด้วย email จาก Google login ทันที
+    if (!CONFIG.ENABLE_FACE_CHECK) {
+      await _doCheckin(_currentUser.email, 'manual');
+      return;
+    }
     showScreen('face');
     const videoEl = document.getElementById('video');
     const canvasEl = document.getElementById('canvas-overlay');

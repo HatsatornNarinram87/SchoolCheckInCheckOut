@@ -1,106 +1,68 @@
-// ── Google OAuth Authentication ──
+// ── Google Sign-In (simplified) ──
 
 const Auth = (() => {
   let _user = null;
-  let _tokenClient = null;
-  let _accessToken = null;
+  let _onSignIn = null;
 
-  function init() {
-    return new Promise((resolve) => {
-      const script = document.createElement('script');
-      script.src = 'https://accounts.google.com/gsi/client';
-      script.onload = () => {
-        _tokenClient = google.accounts.oauth2.initTokenClient({
-          client_id: CONFIG.GOOGLE_CLIENT_ID,
-          scope: 'email profile',
-          callback: (resp) => {
-            if (resp.error) return;
-            _accessToken = resp.access_token;
-          },
-        });
-        resolve();
-      };
-      document.head.appendChild(script);
-    });
-  }
+  // เรียกใน app.js ก่อนแสดงหน้า login
+  function init(onSignIn) {
+    _onSignIn = onSignIn;
 
-  function signIn() {
-    return new Promise((resolve, reject) => {
-      // Use Google Identity Services (One Tap or popup)
-      google.accounts.id.initialize({
-        client_id: CONFIG.GOOGLE_CLIENT_ID,
-        callback: (response) => {
-          const payload = _parseJwt(response.credential);
-          if (!payload) { reject(new Error('Invalid token')); return; }
-
-          // ตรวจ domain อีเมล
-          if (CONFIG.SCHOOL_EMAIL_DOMAIN) {
-            const domain = payload.email.split('@')[1];
-            if (domain !== CONFIG.SCHOOL_EMAIL_DOMAIN) {
-              reject(new Error(`กรุณาใช้อีเมล @${CONFIG.SCHOOL_EMAIL_DOMAIN} เท่านั้น`));
-              return;
-            }
-          }
-
-          _user = {
-            id: payload.sub,
-            name: payload.name,
-            email: payload.email,
-            picture: payload.picture,
-            isAdmin: _checkAdmin(payload.email),
-          };
-          _saveSession(_user);
-          resolve(_user);
-        },
-      });
-      google.accounts.id.prompt((notification) => {
-        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          // fallback: show button manually
-          const parent = document.getElementById('btn-google-login').parentElement;
-          google.accounts.id.renderButton(
-            document.getElementById('btn-google-login'),
-            { theme: 'outline', size: 'large', width: 300 }
-          );
-        }
-      });
-    });
-  }
-
-  function signOut() {
-    _user = null;
-    _accessToken = null;
-    sessionStorage.removeItem('teacher_session');
-    if (window.google?.accounts?.id) {
-      google.accounts.id.disableAutoSelect();
-    }
-  }
-
-  function getUser() {
-    if (_user) return _user;
+    // โหลด session เดิม
     const saved = sessionStorage.getItem('teacher_session');
     if (saved) {
       try { _user = JSON.parse(saved); } catch (e) {}
     }
-    return _user;
+
+    // รอ GSI library โหลดเสร็จ
+    window.handleGoogleSignIn = _handleCredential;
   }
 
-  function isLoggedIn() { return !!getUser(); }
+  function _handleCredential(response) {
+    const payload = _parseJwt(response.credential);
+    if (!payload) { _showError('Token ไม่ถูกต้อง'); return; }
+
+    if (CONFIG.SCHOOL_EMAIL_DOMAIN) {
+      const domain = payload.email.split('@')[1];
+      if (domain !== CONFIG.SCHOOL_EMAIL_DOMAIN) {
+        _showError(`กรุณาใช้อีเมล @${CONFIG.SCHOOL_EMAIL_DOMAIN} เท่านั้น`);
+        return;
+      }
+    }
+
+    _user = {
+      id: payload.sub,
+      name: payload.name,
+      email: payload.email,
+      picture: payload.picture,
+      isAdmin: _checkAdmin(payload.email),
+    };
+    sessionStorage.setItem('teacher_session', JSON.stringify(_user));
+    _onSignIn?.(_user);
+  }
+
+  function _showError(msg) {
+    const el = document.getElementById('login-error');
+    if (el) { el.textContent = msg; el.style.display = 'block'; }
+  }
+
+  function signOut() {
+    _user = null;
+    sessionStorage.removeItem('teacher_session');
+    google?.accounts?.id?.disableAutoSelect?.();
+  }
+
+  function getUser() { return _user; }
+  function isLoggedIn() { return !!_user; }
 
   function _parseJwt(token) {
-    try {
-      return JSON.parse(atob(token.split('.')[1]));
-    } catch (e) { return null; }
+    try { return JSON.parse(atob(token.split('.')[1])); } catch (e) { return null; }
   }
 
   function _checkAdmin(email) {
-    // Admin emails list — เพิ่ม email admin ที่นี่
     const admins = ['admin@school.ac.th', 'principal@school.ac.th'];
     return admins.includes(email);
   }
 
-  function _saveSession(user) {
-    sessionStorage.setItem('teacher_session', JSON.stringify(user));
-  }
-
-  return { init, signIn, signOut, getUser, isLoggedIn };
+  return { init, signOut, getUser, isLoggedIn };
 })();
