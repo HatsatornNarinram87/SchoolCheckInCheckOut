@@ -1,6 +1,31 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
+  <script>
+    (function () {
+      var ua = navigator.userAgent;
+      var isLine = /Line\//i.test(ua);
+      var isFB = /FBAN|FBAV/i.test(ua);
+      var isIG = /Instagram/i.test(ua);
+      if (isLine || isFB || isIG) {
+        var isAndroid = /Android/i.test(ua);
+        var isIOS = /iPhone|iPad|iPod/i.test(ua);
+        if (isAndroid) {
+          window.location.href = 'intent://' + location.host + location.pathname + location.search +
+            '#Intent;scheme=https;package=com.android.chrome;end';
+        } else if (isIOS) {
+          document.addEventListener('DOMContentLoaded', function () {
+            document.body.innerHTML =
+              '<div style="padding:2rem;text-align:center;font-family:sans-serif;max-width:400px;margin:auto">' +
+              '<h2 style="color:#e00">กรุณาเปิดใน Chrome</h2>' +
+              '<p>LINE ไม่รองรับการล็อกอิน Google</p>' +
+              '<p>กด <strong>···</strong> มุมขวาบน<br>แล้วเลือก <strong>"เปิดในเบราว์เซอร์ภายนอก"</strong></p>' +
+              '</div>';
+          });
+        }
+      }
+    })();
+  </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
   <meta name="theme-color" content="#1565C0" />
