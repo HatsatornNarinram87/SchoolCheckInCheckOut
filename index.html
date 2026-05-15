@@ -56,7 +56,7 @@
     <div id="google-signin-btn"></div>
 
     <p id="login-error" style="color:#C62828;font-size:13px;margin-top:12px;display:none;"></p>
-    <p class="login-note">* 1 เครื่อง 1 gmail เท่านั้น</p>
+    <p class="login-note" style="color:#C62828;">*1 เครื่อง 1 gmail เท่านั้น*</p>
   </div>
 </div>
 
@@ -231,6 +231,21 @@
     <div class="modal-actions">
       <button id="btn-gov-submit" class="btn btn-primary">ยืนยัน</button>
       <button id="btn-gov-cancel" class="btn btn-secondary">ยกเลิก</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: เช็คออกก่อนเวลา -->
+<div id="modal-early-checkout" class="modal-overlay hidden">
+  <div class="modal-card">
+    <h2>⏰ เช็คออกก่อน 16:30</h2>
+    <p style="font-size:14px;color:var(--text-secondary);margin-bottom:16px">กรุณาระบุเหตุผลที่ออกก่อนเวลา</p>
+    <label>เหตุผล</label>
+    <textarea id="early-checkout-reason" class="input-field textarea-field" placeholder="ระบุเหตุผล..."></textarea>
+    <p id="early-checkout-error" class="form-error hidden"></p>
+    <div class="modal-actions">
+      <button id="btn-early-checkout-submit" class="btn btn-primary">ยืนยันเช็คออก</button>
+      <button id="btn-early-checkout-cancel" class="btn btn-secondary">ยกเลิก</button>
     </div>
   </div>
 </div>

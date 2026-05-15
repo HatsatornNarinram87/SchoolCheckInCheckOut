@@ -6,7 +6,7 @@ const SHEET_ATTENDANCE = 'Attendance';
 const SHEET_LEAVE      = 'LeaveRequests';
 
 const TEACHER_HEADERS    = ['email','name','subject','faceDescriptor','snapshot','active','createdAt','boundFingerprint','lastSeenAt'];
-const ATTENDANCE_HEADERS = ['date','checkInTime','checkOutTime','email','name','subject','status','checkInMethod','checkOutMethod','workHours','lat','lng','checkOutLat','checkOutLng','deviceFingerprint'];
+const ATTENDANCE_HEADERS = ['date','checkInTime','checkOutTime','email','name','subject','status','checkInMethod','checkOutMethod','workHours','lat','lng','checkOutLat','checkOutLng','deviceFingerprint','earlyCheckoutDetail'];
 const LEAVE_HEADERS      = ['date','email','name','leaveType','startDate','endDate','detail','submittedAt','deviceFingerprint','lat','lng'];
 
 const SHEET_MONTHLY_REPORT    = 'MonthlyReports';
@@ -82,6 +82,13 @@ function getMyStatus(data) {
   const name    = teacher?.name || null;
 
   if (!rec) return { ok: true, status: 'none', name };
+
+  // ถ้าแถวเป็น leave record (checkInTime ว่าง แต่มี status เป็น leaveType)
+  const leaveStatuses = ['sick', 'absence', 'government'];
+  if (leaveStatuses.includes(String(rec.status).toLowerCase())) {
+    return { ok: true, status: 'leave', leaveType: rec.status, name };
+  }
+
   if (rec.checkOutTime) {
     return { ok: true, status: 'completed', name, checkInTime: rec.checkInTime, checkOutTime: rec.checkOutTime, workHours: rec.workHours };
   }
@@ -141,7 +148,7 @@ function checkIn(data) {
 
 // ── Action: checkOut ──
 function checkOut(data) {
-  const { email, method, timestamp, lat, lng, deviceFingerprint } = data;
+  const { email, method, timestamp, lat, lng, deviceFingerprint, earlyCheckoutDetail } = data;
   if (!email) return { ok: false, error: 'Missing email' };
 
   _ensureHeaders(SHEET_ATTENDANCE, ATTENDANCE_HEADERS);
@@ -183,12 +190,15 @@ function checkOut(data) {
     return { ok: false, error: 'Schema ของ Attendance sheet ไม่ถูกต้อง — รัน resetAttendance() ใน Apps Script' };
   }
 
+  const ecdIdx = hdrs.indexOf('earlycheckoutdetail');
+
   if (coIdx   !== -1) sheet.getRange(rec.rowIndex, coIdx   + 1).setValue(displayTime);
   if (cmIdx   !== -1) sheet.getRange(rec.rowIndex, cmIdx   + 1).setValue(method || 'manual');
   if (whIdx   !== -1) sheet.getRange(rec.rowIndex, whIdx   + 1).setValue(workHours);
   if (coLatIdx !== -1 && lat) sheet.getRange(rec.rowIndex, coLatIdx + 1).setValue(lat);
   if (coLngIdx !== -1 && lng) sheet.getRange(rec.rowIndex, coLngIdx + 1).setValue(lng);
-  if (dfIdx   !== -1 && deviceFingerprint) sheet.getRange(rec.rowIndex, dfIdx + 1).setValue(deviceFingerprint);
+  if (dfIdx   !== -1 && deviceFingerprint) sheet.getRange(rec.rowIndex, dfIdx  + 1).setValue(deviceFingerprint);
+  if (ecdIdx  !== -1 && earlyCheckoutDetail) sheet.getRange(rec.rowIndex, ecdIdx + 1).setValue(earlyCheckoutDetail);
 
   const teacher = _findTeacher(email);
   return { ok: true, name: teacher?.name || email.split('@')[0], checkOutTime: displayTime, workHours };
@@ -230,6 +240,21 @@ function submitLeave(data) {
     lat: lat || '',
     lng: lng || '',
   });
+
+  // บันทึกลง Attendance ด้วย เพื่อให้ getMyStatus เห็นสถานะลา
+  _ensureHeaders(SHEET_ATTENDANCE, ATTENDANCE_HEADERS);
+  const attSheet   = _getSheet(SHEET_ATTENDANCE);
+  const todayStr   = Utilities.formatDate(now, 'Asia/Bangkok', 'yyyy-MM-dd');
+  const existingAtt = _findTodayRecord(attSheet, email, todayStr);
+  if (!existingAtt) {
+    _appendRow(SHEET_ATTENDANCE, ATTENDANCE_HEADERS, {
+      date: todayStr, checkInTime: '', checkOutTime: '',
+      email, name: teacher.name, subject: teacher.subject || '',
+      status: leaveType, checkInMethod: 'leave', checkOutMethod: '', workHours: '',
+      lat: '', lng: '', checkOutLat: '', checkOutLng: '',
+      deviceFingerprint: deviceFingerprint || '',
+    });
+  }
 
   return { ok: true, name: teacher.name };
 }

@@ -15,16 +15,21 @@ const App = (() => {
     document.getElementById('screen-' + id).classList.add('active');
   }
 
-  function _showLoginScreen() {
+  async function _showLoginScreen() {
     Auth.signOut();
     showScreen('login');
     const btn = document.getElementById('google-signin-btn');
-    if (btn) btn.innerHTML = ''; // clear previous iframe so renderButton works
-    try {
-      google.accounts.id.renderButton(btn, {
-        theme: 'outline', size: 'large', shape: 'pill', locale: 'th', width: 280,
-      });
-    } catch (e) {}
+    if (btn) btn.innerHTML = '';
+    // GSI อาจยังไม่ถูกโหลด (กรณี auto-login ข้าม _loadGSI ไป)
+    if (typeof google === 'undefined' || !google?.accounts?.id) {
+      await _loadGSI();
+    } else {
+      try {
+        google.accounts.id.renderButton(btn, {
+          theme: 'outline', size: 'large', shape: 'pill', locale: 'th', width: 280,
+        });
+      } catch (e) {}
+    }
   }
 
   function toast(msg, type = '', duration = 3000) {
@@ -184,6 +189,41 @@ const App = (() => {
     });
   }
 
+  // ── Early checkout check (before 16:30 Bangkok) ──
+  function _isBefore1630() {
+    const t = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hour12: false,
+    }).format(new Date());
+    const [h, m] = t.split(':').map(Number);
+    return (h * 60 + m) < (16 * 60 + 30);
+  }
+
+  function _askEarlyCheckoutReason() {
+    return new Promise((resolve, reject) => {
+      const modal    = document.getElementById('modal-early-checkout');
+      const textarea = document.getElementById('early-checkout-reason');
+      const errorEl  = document.getElementById('early-checkout-error');
+      textarea.value = '';
+      errorEl.classList.add('hidden');
+      modal.classList.remove('hidden');
+
+      document.getElementById('btn-early-checkout-submit').onclick = () => {
+        const reason = textarea.value.trim();
+        if (!reason) {
+          errorEl.textContent = 'กรุณาระบุเหตุผล';
+          errorEl.classList.remove('hidden');
+          return;
+        }
+        modal.classList.add('hidden');
+        resolve(reason);
+      };
+      document.getElementById('btn-early-checkout-cancel').onclick = () => {
+        modal.classList.add('hidden');
+        reject(new Error('cancelled'));
+      };
+    });
+  }
+
   // ── Button click animations ──
   function _playButtonAnim(btn, type) {
     const animClass = type === 'checkin' ? 'btn-anim-checkin' : 'btn-anim-checkout';
@@ -233,6 +273,8 @@ const App = (() => {
     checkoutBtn.disabled = false;
     checkinBtn.textContent  = '🟢 เช็คชื่อเข้างาน';
     checkoutBtn.textContent = '🔴 เช็คออก';
+    const leaveBtns = ['btn-leave-sick', 'btn-leave-abs', 'btn-leave-gov'].map(id => document.getElementById(id));
+    leaveBtns.forEach(b => { if (b) b.disabled = false; });
 
     if (status.status === 'none') {
       statusBox.innerHTML = '<div class="status-row"><span class="status-label">สถานะวันนี้</span><span class="status-val" style="color:var(--text-secondary)">ยังไม่ได้เช็คชื่อ</span></div>';
@@ -242,6 +284,18 @@ const App = (() => {
         <div class="status-row"><span class="status-label">เข้างาน</span><span class="status-val" style="color:var(--success)">${status.checkInTime}</span></div>
         <div class="status-row"><span class="status-label">ออกงาน</span><span class="status-val" style="color:var(--text-secondary)">ยังไม่ได้เช็คออก</span></div>`;
       checkinBtn.disabled = true;
+      leaveBtns.forEach(b => { if (b) b.disabled = true; });
+    } else if (status.status === 'leave') {
+      const leaveLabel = { sick: '🤒 ลาป่วย', absence: '📋 ลากิจ', government: '🏛️ ไปราชการ' };
+      const label = leaveLabel[status.leaveType] || '📝 ลา';
+      statusBox.innerHTML = `
+        <div class="status-row"><span class="status-label">สถานะวันนี้</span><span class="status-val" style="color:var(--warning)">${label}</span></div>
+        <div class="status-row"><span class="status-label">คำขอลา</span><span class="status-val" style="color:var(--text-secondary)">อยู่ระหว่างพิจารณา</span></div>`;
+      checkinBtn.disabled = true;
+      checkoutBtn.disabled = true;
+      checkinBtn.textContent  = '✅ ส่งคำขอลาแล้ว';
+      checkoutBtn.textContent = '✅ ส่งคำขอลาแล้ว';
+      leaveBtns.forEach(b => { if (b) b.disabled = true; });
     } else if (status.status === 'completed') {
       statusBox.innerHTML = `
         <div class="status-row"><span class="status-label">เข้างาน</span><span class="status-val" style="color:var(--success)">${status.checkInTime}</span></div>
@@ -251,6 +305,7 @@ const App = (() => {
       checkoutBtn.disabled = true;
       checkinBtn.textContent  = '✅ เช็คชื่อแล้ว';
       checkoutBtn.textContent = '✅ เช็คออกแล้ว';
+      leaveBtns.forEach(b => { if (b) b.disabled = true; });
     }
 
     checkinBtn.onclick = async () => {
@@ -272,6 +327,17 @@ const App = (() => {
     };
     checkoutBtn.onclick = async () => {
       _playButtonAnim(checkoutBtn, 'checkout');
+
+      // ถ้าออกก่อน 16:30 ต้องระบุเหตุผล
+      let earlyReason = null;
+      if (_isBefore1630()) {
+        try {
+          earlyReason = await _askEarlyCheckoutReason();
+        } catch (e) {
+          return; // ยกเลิก
+        }
+      }
+
       if (CONFIG.ENABLE_GPS_CHECK) {
         checkoutBtn.disabled = true;
         checkoutBtn.textContent = '📍 กำลังตรวจสอบตำแหน่ง...';
@@ -285,7 +351,7 @@ const App = (() => {
       }
       showScreen('loading');
       document.querySelector('#screen-loading p').textContent = 'กำลังบันทึกการออกงาน...';
-      await _doCheckout(_currentUser.email, 'manual');
+      await _doCheckout(_currentUser.email, 'manual', earlyReason);
     };
     document.getElementById('btn-action-logout').onclick = _showLoginScreen;
 
@@ -350,13 +416,14 @@ const App = (() => {
     }
   }
 
-  async function _doCheckout(email, method) {
+  async function _doCheckout(email, method, earlyReason = null) {
     try {
       const res = await API.checkOut({
         email, method,
         lat: _gpsResult?.position?.lat,
         lng: _gpsResult?.position?.lng,
         deviceFingerprint: _deviceFingerprint,
+        earlyCheckoutDetail: earlyReason,
       });
       _showSuccess(res, 'checkout');
     } catch (e) {
@@ -769,28 +836,20 @@ const App = (() => {
 
     errorEl.classList.add('hidden');
 
-    // เก็บ GPS แบบ silent (ไม่บังคับ)
-    let lat = null, lng = null;
-    try {
-      const pos = await Promise.race([
-        GPS.getCurrentPosition(),
-        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000)),
-      ]);
-      lat = pos?.lat ?? null;
-      lng = pos?.lng ?? null;
-    } catch (e) {}
-
+    // ล็อกปุ่มทันที เพื่อป้องกันกดซ้ำ
     const submitBtn = document.getElementById('btn-' + type + '-submit');
     submitBtn.disabled = true;
     submitBtn.textContent = 'กำลังส่ง...';
+
+    const lat = null, lng = null;
 
     try {
       await API.submitLeave({ leaveType, startDate, endDate, detail, deviceFingerprint: _deviceFingerprint, lat, lng });
       modal.classList.add('hidden');
       toast('ส่งคำขอลาสำเร็จ', 'success');
+      await _showActionScreen(); // refresh status → disable check-in/out buttons
     } catch (e) {
       showError('ส่งไม่สำเร็จ: ' + e.message);
-    } finally {
       submitBtn.disabled = false;
       submitBtn.textContent = type === 'gov' ? 'ยืนยัน' : 'ส่งคำขอลา';
     }

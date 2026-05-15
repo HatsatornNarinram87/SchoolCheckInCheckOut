@@ -28,7 +28,7 @@ const API = (() => {
   }
 
   // เช็คออก
-  async function checkOut({ email, method, lat, lng, deviceFingerprint }) {
+  async function checkOut({ email, method, lat, lng, deviceFingerprint, earlyCheckoutDetail }) {
     const now = new Date();
     return _request('checkOut', {
       email, method,
@@ -36,6 +36,7 @@ const API = (() => {
       lat: lat ?? null,
       lng: lng ?? null,
       deviceFingerprint: deviceFingerprint ?? null,
+      earlyCheckoutDetail: earlyCheckoutDetail ?? null,
     });
   }
 
