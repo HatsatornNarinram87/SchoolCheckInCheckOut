@@ -18,7 +18,7 @@ const CONFIG = {
   SCHOOL_LAT: 16.4170402,
   SCHOOL_LNG: 103.3634167,
   // รัศมี GPS (เมตร) — 100 = ต้องอยู่ในรัศมี 100 เมตร
-  GPS_RADIUS_METERS: 100,
+  GPS_RADIUS_METERS: 300,
 
   // เวลาเริ่มงาน (ชั่วโมง:นาที) — ถ้ามาหลังนี้ถือว่าสาย
   WORK_START_HOUR: 8,
