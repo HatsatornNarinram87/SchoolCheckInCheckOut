@@ -6,7 +6,7 @@ const CONFIG = {
 
   // Google OAuth Client ID (จาก Google Cloud Console)
   // GOOGLE_CLIENT_ID: '921804252606-5tepbu13r8q4e61d9ktcbs7tfmkpaebt.apps.googleusercontent.com',
-  GOOGLE_CLIENT_ID: '921804252606-5tepbu13r8q4e61d9ktcbs7tfmkpaebt.apps.googleusercontent.com', //prod
+  GOOGLE_CLIENT_ID: '921804252606-oebjar2gqt4b7kp8j99ur3nnm5h5sc8t.apps.googleusercontent.com', //prod
 
   // Domain อีเมลโรงเรียน (ถ้าไม่จำกัด domain ให้ใส่ '')
   SCHOOL_EMAIL_DOMAIN: '',
