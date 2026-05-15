@@ -14,9 +14,9 @@ const CONFIG = {
   // ตำแหน่งโรงเรียน (latitude, longitude)
   // SCHOOL_LAT: 16.3950333,
   // SCHOOL_LNG: 103.3685648,
-  /// test
-  SCHOOL_LAT: 16.400384,
-  SCHOOL_LNG: 103.3732096,
+  /// test16.4170402,103.3634167
+  SCHOOL_LAT: 16.4170402,
+  SCHOOL_LNG: 103.3634167,
   // รัศมี GPS (เมตร) — 100 = ต้องอยู่ในรัศมี 100 เมตร
   GPS_RADIUS_METERS: 100,
 
