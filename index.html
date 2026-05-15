@@ -100,6 +100,11 @@
     <div class="action-buttons">
       <button id="btn-checkin-action" class="btn btn-primary">🟢 เช็คชื่อเข้างาน</button>
       <button id="btn-checkout-action" class="btn btn-checkout">🔴 เช็คออก</button>
+      <div class="leave-buttons">
+        <button id="btn-leave-sick" class="btn btn-leave">🤒 ลาป่วย</button>
+        <button id="btn-leave-abs"  class="btn btn-leave">📋 ลากิจ</button>
+        <button id="btn-leave-gov"  class="btn btn-leave">🏛️ ไปราชการ</button>
+      </div>
     </div>
     <button id="btn-action-logout" class="btn btn-secondary" style="margin-top:8px">ออกจากระบบ</button>
   </div>
@@ -149,9 +154,84 @@
   <div id="tab-report" class="tab-content hidden">
     <div class="report-controls">
       <input type="month" id="report-month" class="input-field" />
-      <button id="btn-export" class="btn btn-primary">ส่งออก Google Sheets</button>
+      <button id="btn-export" class="btn btn-primary">ดูรายงานเดือนนี้</button>
+      <button id="btn-generate-log" class="btn btn-secondary">เพิ่มรายงานเดือนนี้</button>
     </div>
-    <div id="report-table"></div>
+    <div id="report-table" class="report-table-wrap"></div>
+
+    <h3 class="report-log-heading">ประวัติรายงานรายเดือน</h3>
+    <div id="report-log-list" class="report-log-list">
+      <p class="report-log-empty">กำลังโหลด...</p>
+    </div>
+  </div>
+</div>
+
+<!-- GPS Inline Overlay -->
+<div id="gps-overlay" class="modal-overlay hidden">
+  <div class="check-card modal-card">
+    <div class="check-icon" id="gps-ol-icon">📍</div>
+    <h2>ตรวจสอบตำแหน่ง</h2>
+    <p id="gps-ol-status">กำลังตรวจสอบ GPS...</p>
+    <div class="progress-bar"><div class="progress-fill" id="gps-ol-progress"></div></div>
+    <button id="btn-gps-ol-retry"  class="btn btn-secondary hidden">ลองใหม่</button>
+    <button id="btn-gps-ol-cancel" class="btn btn-secondary hidden" style="margin-top:8px">ยกเลิก</button>
+  </div>
+</div>
+
+<!-- Modal: ลาป่วย -->
+<div id="modal-leave-sick" class="modal-overlay hidden">
+  <div class="modal-card">
+    <h2>🤒 ลาป่วย</h2>
+    <label>วันที่เริ่มลา</label>
+    <input type="date" id="sick-start" class="input-field" />
+    <label>วันที่สิ้นสุด</label>
+    <input type="date" id="sick-end" class="input-field" />
+    <label>สาเหตุ / อาการ</label>
+    <textarea id="sick-reason" class="input-field textarea-field" placeholder="ระบุอาการหรือสาเหตุ"></textarea>
+    <label class="checkbox-label">
+      <input type="checkbox" id="sick-cert" /> มีใบรับรองแพทย์
+    </label>
+    <p id="sick-error" class="form-error hidden"></p>
+    <div class="modal-actions">
+      <button id="btn-sick-submit" class="btn btn-primary">ส่งคำขอลา</button>
+      <button id="btn-sick-cancel" class="btn btn-secondary">ยกเลิก</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: ลากิจ -->
+<div id="modal-leave-abs" class="modal-overlay hidden">
+  <div class="modal-card">
+    <h2>📋 ลากิจ</h2>
+    <label>วันที่เริ่มลา</label>
+    <input type="date" id="abs-start" class="input-field" />
+    <label>วันที่สิ้นสุด</label>
+    <input type="date" id="abs-end" class="input-field" />
+    <label>เหตุผล</label>
+    <textarea id="abs-reason" class="input-field textarea-field" placeholder="ระบุเหตุผล"></textarea>
+    <p id="abs-error" class="form-error hidden"></p>
+    <div class="modal-actions">
+      <button id="btn-abs-submit" class="btn btn-primary">ส่งคำขอลา</button>
+      <button id="btn-abs-cancel" class="btn btn-secondary">ยกเลิก</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: ไปราชการ -->
+<div id="modal-leave-gov" class="modal-overlay hidden">
+  <div class="modal-card">
+    <h2>🏛️ ไปราชการ</h2>
+    <label>วันที่</label>
+    <input type="date" id="gov-date" class="input-field" />
+    <label>สถานที่ปฏิบัติราชการ</label>
+    <input type="text" id="gov-dest" class="input-field" placeholder="ระบุสถานที่" />
+    <label>วัตถุประสงค์ / ภารกิจ</label>
+    <textarea id="gov-mission" class="input-field textarea-field" placeholder="ระบุภารกิจ"></textarea>
+    <p id="gov-error" class="form-error hidden"></p>
+    <div class="modal-actions">
+      <button id="btn-gov-submit" class="btn btn-primary">ยืนยัน</button>
+      <button id="btn-gov-cancel" class="btn btn-secondary">ยกเลิก</button>
+    </div>
   </div>
 </div>
 

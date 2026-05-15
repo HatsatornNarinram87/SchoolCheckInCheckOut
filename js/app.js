@@ -7,6 +7,7 @@ const App = (() => {
   let _stopFaceScan = null;
   let _gpsResult = null;
   let _adminCameraActive = false;
+  let _deviceFingerprint = null;
 
   // ── Screen management ──
   function showScreen(id) {
@@ -89,10 +90,25 @@ const App = (() => {
         }
       }
 
+      _deviceFingerprint = await _getDeviceFingerprint();
+
+      if (!_currentUser.isAdmin) {
+        try {
+          const dv = await API.verifyAndBindDevice(_deviceFingerprint);
+          if (!dv.ok) {
+            toast(dv.error || 'อุปกรณ์ไม่ตรง กรุณาติดต่อ Admin', 'error', 6000);
+            setTimeout(() => { Auth.signOut(); showScreen('login'); }, 3000);
+            return;
+          }
+        } catch (e) {
+          console.warn('verifyAndBindDevice failed:', e.message); // network error → fail open
+        }
+      }
+
       if (_currentUser.isAdmin) {
         await _showAdmin();
       } else {
-        await _startGpsCheck();
+        await _showActionScreen();
       }
     } catch (e) {
       toast('เกิดข้อผิดพลาด: ' + e.message, 'error', 5000);
@@ -100,42 +116,86 @@ const App = (() => {
     }
   }
 
-  // ── GPS Check ──
-  async function _startGpsCheck() {
-    showScreen('gps');
-    const statusEl = document.getElementById('gps-status');
-    const progressEl = document.getElementById('gps-progress');
-    const retryBtn = document.getElementById('btn-retry-gps');
-    const iconEl = document.getElementById('gps-icon');
+  // ── GPS Check (overlay — returns Promise, resolves on pass, rejects on cancel) ──
+  function _runGpsCheck() {
+    return new Promise((resolve, reject) => {
+      const overlay    = document.getElementById('gps-overlay');
+      const iconEl     = document.getElementById('gps-ol-icon');
+      const statusEl   = document.getElementById('gps-ol-status');
+      const progressEl = document.getElementById('gps-ol-progress');
+      const retryBtn   = document.getElementById('btn-gps-ol-retry');
+      const cancelBtn  = document.getElementById('btn-gps-ol-cancel');
 
-    try {
-      _gpsResult = await GPS.checkInSchool((msg, pct) => {
-        statusEl.textContent = msg;
-        progressEl.style.width = pct + '%';
-      });
-
-      if (_gpsResult.ok) {
-        iconEl.textContent = '✅';
-        statusEl.textContent = `ยืนยันตำแหน่ง (${_gpsResult.distance} เมตร)`;
-        progressEl.style.width = '100%';
-        setTimeout(_startFaceScan, 800);
-      } else {
-        iconEl.textContent = '❌';
-        statusEl.textContent = `อยู่นอกรัศมีโรงเรียน (${_gpsResult.distance} เมตร จากโรงเรียน ${CONFIG.GPS_RADIUS_METERS} เมตร)`;
-        retryBtn.classList.remove('hidden');
+      function reset() {
+        iconEl.textContent = '📍';
+        statusEl.textContent = 'กำลังตรวจสอบ GPS...';
+        progressEl.style.width = '0%';
+        retryBtn.classList.add('hidden');
+        cancelBtn.classList.add('hidden');
       }
-    } catch (e) {
-      iconEl.textContent = '⚠️';
-      statusEl.textContent = e.message;
-      retryBtn.classList.remove('hidden');
-    }
 
-    retryBtn.onclick = () => {
-      retryBtn.classList.add('hidden');
-      iconEl.textContent = '📍';
-      progressEl.style.width = '0%';
-      _startGpsCheck();
-    };
+      function hide() {
+        overlay.classList.add('hidden');
+      }
+
+      async function run() {
+        reset();
+        overlay.classList.remove('hidden');
+        try {
+          const result = await GPS.checkInSchool((msg, pct) => {
+            statusEl.textContent = msg;
+            progressEl.style.width = pct + '%';
+          });
+          if (result.ok) {
+            iconEl.textContent = '✅';
+            statusEl.textContent = `ยืนยันตำแหน่ง (${result.distance} เมตร)`;
+            progressEl.style.width = '100%';
+            setTimeout(() => { hide(); resolve(result); }, 600);
+          } else {
+            iconEl.textContent = '❌';
+            statusEl.textContent = `อยู่นอกรัศมีโรงเรียน (${result.distance} เมตร จากโรงเรียน ${CONFIG.GPS_RADIUS_METERS} เมตร)`;
+            retryBtn.classList.remove('hidden');
+            cancelBtn.classList.remove('hidden');
+          }
+        } catch (e) {
+          iconEl.textContent = '⚠️';
+          statusEl.textContent = e.message;
+          retryBtn.classList.remove('hidden');
+          cancelBtn.classList.remove('hidden');
+        }
+      }
+
+      retryBtn.onclick = () => run();
+      cancelBtn.onclick = () => { hide(); reject(new Error('cancelled')); };
+
+      run();
+    });
+  }
+
+  // ── Button click animations ──
+  function _playButtonAnim(btn, type) {
+    const animClass = type === 'checkin' ? 'btn-anim-checkin' : 'btn-anim-checkout';
+    btn.classList.add(animClass);
+    setTimeout(() => btn.classList.remove(animClass), 600);
+
+    const pool = type === 'checkin'
+      ? ['✅', '⭐', '🌟', '💚', '🎉']
+      : ['👋', '🌅', '⏰', '🏃', '❤️'];
+
+    const rect = btn.getBoundingClientRect();
+    const count = 3 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < count; i++) {
+      const el = document.createElement('span');
+      el.className = 'btn-particle';
+      el.textContent = pool[Math.floor(Math.random() * pool.length)];
+      el.style.left = (rect.left + Math.random() * rect.width) + 'px';
+      el.style.top  = (rect.top  + Math.random() * rect.height * 0.6) + 'px';
+      el.style.fontSize = (14 + Math.random() * 10) + 'px';
+      el.style.animationDuration = (0.6 + Math.random() * 0.4) + 's';
+      el.style.animationDelay   = (Math.random() * 0.15) + 's';
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 1300);
+    }
   }
 
   // ── Action Screen (เช็คชื่อ / เช็คออก) ──
@@ -159,6 +219,8 @@ const App = (() => {
     // reset ทุกครั้งก่อน set ใหม่
     checkinBtn.disabled  = false;
     checkoutBtn.disabled = false;
+    checkinBtn.textContent  = '🟢 เช็คชื่อเข้างาน';
+    checkoutBtn.textContent = '🔴 เช็คออก';
 
     if (status.status === 'none') {
       statusBox.innerHTML = '<div class="status-row"><span class="status-label">สถานะวันนี้</span><span class="status-val" style="color:var(--text-secondary)">ยังไม่ได้เช็คชื่อ</span></div>';
@@ -175,14 +237,40 @@ const App = (() => {
         <div class="status-row"><span class="status-label">ชั่วโมงงาน</span><span class="status-val">${status.workHours || '-'}</span></div>`;
       checkinBtn.disabled = true;
       checkoutBtn.disabled = true;
+      checkinBtn.textContent  = '✅ เช็คชื่อแล้ว';
+      checkoutBtn.textContent = '✅ เช็คออกแล้ว';
     }
 
     checkinBtn.onclick = async () => {
+      _playButtonAnim(checkinBtn, 'checkin');
+      if (CONFIG.ENABLE_GPS_CHECK) {
+        checkinBtn.disabled = true;
+        checkinBtn.textContent = '📍 กำลังตรวจสอบตำแหน่ง...';
+        try {
+          _gpsResult = await _runGpsCheck();
+        } catch (e) {
+          checkinBtn.disabled = false;
+          checkinBtn.textContent = '🟢 เช็คชื่อเข้างาน';
+          return;
+        }
+      }
       showScreen('loading');
       document.querySelector('#screen-loading p').textContent = 'กำลังบันทึกการเข้างาน...';
       await _doCheckin(_currentUser.email, 'manual');
     };
     checkoutBtn.onclick = async () => {
+      _playButtonAnim(checkoutBtn, 'checkout');
+      if (CONFIG.ENABLE_GPS_CHECK) {
+        checkoutBtn.disabled = true;
+        checkoutBtn.textContent = '📍 กำลังตรวจสอบตำแหน่ง...';
+        try {
+          _gpsResult = await _runGpsCheck();
+        } catch (e) {
+          checkoutBtn.disabled = false;
+          checkoutBtn.textContent = '🔴 เช็คออก';
+          return;
+        }
+      }
       showScreen('loading');
       document.querySelector('#screen-loading p').textContent = 'กำลังบันทึกการออกงาน...';
       await _doCheckout(_currentUser.email, 'manual');
@@ -197,6 +285,8 @@ const App = (() => {
         );
       } catch (e) {}
     };
+
+    _setupLeaveButtons();
   }
 
   // ── Face Scan ──
@@ -242,6 +332,7 @@ const App = (() => {
         method,
         lat: _gpsResult?.position?.lat,
         lng: _gpsResult?.position?.lng,
+        deviceFingerprint: _deviceFingerprint,
       };
       const res = await API.checkIn(payload);
       if (res.alreadyChecked) {
@@ -262,11 +353,12 @@ const App = (() => {
         email, method,
         lat: _gpsResult?.position?.lat,
         lng: _gpsResult?.position?.lng,
+        deviceFingerprint: _deviceFingerprint,
       });
       _showSuccess(res, 'checkout');
     } catch (e) {
       toast('เช็คออกไม่สำเร็จ: ' + e.message, 'error');
-      setTimeout(() => showScreen('action'), 2000);
+      setTimeout(() => _showActionScreen(), 2000);
     }
   }
 
@@ -335,8 +427,10 @@ const App = (() => {
     await _loadTodayAttendance();
     document.getElementById('report-month').value = new Date().toISOString().slice(0, 7);
     document.getElementById('btn-export').onclick = _exportReport;
+    document.getElementById('btn-generate-log').onclick = _generateReportLogNow;
     document.getElementById('btn-capture-face').onclick = _adminCaptureFace;
     document.getElementById('btn-save-teacher').onclick = _adminSaveTeacher;
+    _loadReportLog();
   }
 
   function _setupAdminTabs() {
@@ -350,6 +444,7 @@ const App = (() => {
           FaceRec.stopCamera();
           _adminCameraActive = false;
         }
+        if (btn.dataset.tab === 'report') _loadReportLog();
       };
     });
   }
@@ -405,13 +500,76 @@ const App = (() => {
     if (!report?.length) { document.getElementById('report-table').innerHTML = '<p>ไม่มีข้อมูล</p>'; return; }
     const headers = Object.keys(report[0]);
     document.getElementById('report-table').innerHTML = `
-      <table>
+      <table class="responsive-table">
         <thead><tr>${headers.map((h) => `<th>${h}</th>`).join('')}</tr></thead>
         <tbody>${report.map((row) =>
-          `<tr>${headers.map((h) => `<td>${row[h] ?? '—'}</td>`).join('')}</tr>`
+          `<tr>${headers.map((h) => `<td data-label="${h}">${row[h] ?? '—'}</td>`).join('')}</tr>`
         ).join('')}</tbody>
       </table>
     `;
+  }
+
+  // ── Report Log ──
+  async function _loadReportLog() {
+    const container = document.getElementById('report-log-list');
+    if (!container) return;
+    container.innerHTML = '<p class="report-log-empty">กำลังโหลด...</p>';
+    try {
+      const rows = await API.getMonthlyReportLog();
+      _renderReportLog(rows);
+    } catch (e) {
+      container.innerHTML = `<p class="report-log-empty">โหลดล้มเหลว: ${e.message}</p>`;
+    }
+  }
+
+  function _renderReportLog(rows) {
+    const container = document.getElementById('report-log-list');
+    if (!rows?.length) {
+      container.innerHTML = '<p class="report-log-empty">ยังไม่มีรายงานในระบบ</p>';
+      return;
+    }
+    container.innerHTML = rows.map((r) => `
+      <div class="report-log-card">
+        <div class="report-log-month">${r.yearMonth}</div>
+        <div class="report-log-stats">
+          <div class="stat-box stat-present">
+            <div class="stat-num">${r.totalPresent ?? 0}</div>
+            <div class="stat-label">ตรงเวลา</div>
+          </div>
+          <div class="stat-box stat-late">
+            <div class="stat-num">${r.totalLate ?? 0}</div>
+            <div class="stat-label">สาย</div>
+          </div>
+          <div class="stat-box stat-absent">
+            <div class="stat-num">${r.totalAbsent ?? 0}</div>
+            <div class="stat-label">ขาด</div>
+          </div>
+          <div class="stat-box stat-rate">
+            <div class="stat-num">${r.onTimeRate ?? '—'}</div>
+            <div class="stat-label">อัตราตรงเวลา</div>
+          </div>
+        </div>
+        <div class="report-log-footer">
+          วันทำงาน ${r.workingDays ?? '—'} วัน · ครู ${r.totalTeachers ?? '—'} คน · สร้างเมื่อ ${r.generatedAt ?? '—'}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function _generateReportLogNow() {
+    const month = document.getElementById('report-month').value;
+    if (!month) { toast('กรุณาเลือกเดือน', 'warning'); return; }
+    const btn = document.getElementById('btn-generate-log');
+    btn.disabled = true;
+    try {
+      await API.generateMonthlyReport(month);
+      toast('สร้างรายงานสำเร็จ', 'success');
+      await _loadReportLog();
+    } catch (e) {
+      toast('สร้างรายงานล้มเหลว: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
   }
 
   // ── Admin: ลงทะเบียนครู ──
@@ -485,6 +643,163 @@ const App = (() => {
       await FaceRec.loadTeacherDescriptors(_teachers);
     } catch (e) {
       toast('บันทึกล้มเหลว: ' + e.message, 'error');
+    }
+  }
+
+  // ── Device Fingerprint ──
+  async function _getDeviceFingerprint() {
+    const parts = [];
+
+    // Tier 1: always available
+    parts.push(navigator.userAgent);
+    parts.push(navigator.language);
+    parts.push(screen.width + 'x' + screen.height);
+    parts.push(window.devicePixelRatio || 1);
+    parts.push(navigator.hardwareConcurrency || '');
+    parts.push(navigator.deviceMemory      || '');
+    parts.push(navigator.maxTouchPoints    || 0);
+    parts.push(screen.colorDepth           || '');
+    parts.push(Intl.DateTimeFormat().resolvedOptions().timeZone);
+
+    // Tier 2: Canvas fingerprint (GPU pixel hash)
+    try {
+      const cv  = document.createElement('canvas');
+      const ctx = cv.getContext('2d');
+      if (!ctx) throw new Error();
+      ctx.fillStyle = '#f60'; ctx.fillRect(0, 0, 10, 10);
+      ctx.fillStyle = '#069'; ctx.font = '11px Arial';
+      ctx.fillText('Cwm fjordbank glyphs', 2, 15);
+      parts.push(cv.toDataURL().slice(-50));
+    } catch { parts.push('no-canvas'); }
+
+    // Tier 3: WebGL renderer string
+    try {
+      const gl = document.createElement('canvas').getContext('webgl')
+              || document.createElement('canvas').getContext('experimental-webgl');
+      if (!gl) throw new Error();
+      const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+      parts.push(dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : 'no-dbg');
+    } catch { parts.push('no-webgl'); }
+
+    // Hash: SHA-256 → btoa → 'unknown'
+    const raw = parts.join('|');
+    try {
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw));
+      return Array.from(new Uint8Array(buf))
+        .map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 64);
+    } catch {
+      try   { return btoa(unescape(encodeURIComponent(raw))).slice(0, 64); }
+      catch { return 'unknown'; }
+    }
+  }
+
+  // ── Leave Buttons ──
+  function _setupLeaveButtons() {
+    document.getElementById('btn-leave-sick').onclick = () => _openLeaveModal('sick');
+    document.getElementById('btn-leave-abs').onclick  = () => _openLeaveModal('abs');
+    document.getElementById('btn-leave-gov').onclick  = () => _openLeaveModal('gov');
+  }
+
+  function _openLeaveModal(type) {
+    const today = new Date().toISOString().slice(0, 10);
+    const modal = document.getElementById('modal-leave-' + type);
+    modal.classList.remove('hidden');
+
+    if (type === 'sick') {
+      document.getElementById('sick-start').value = today;
+      document.getElementById('sick-end').value   = today;
+      document.getElementById('sick-reason').value = '';
+      document.getElementById('sick-cert').checked = false;
+      document.getElementById('sick-error').classList.add('hidden');
+      document.getElementById('btn-sick-submit').onclick = () => _submitLeave('sick');
+      document.getElementById('btn-sick-cancel').onclick = () => modal.classList.add('hidden');
+    } else if (type === 'abs') {
+      document.getElementById('abs-start').value = today;
+      document.getElementById('abs-end').value   = today;
+      document.getElementById('abs-reason').value = '';
+      document.getElementById('abs-error').classList.add('hidden');
+      document.getElementById('btn-abs-submit').onclick = () => _submitLeave('abs');
+      document.getElementById('btn-abs-cancel').onclick = () => modal.classList.add('hidden');
+    } else if (type === 'gov') {
+      document.getElementById('gov-date').value    = today;
+      document.getElementById('gov-dest').value    = '';
+      document.getElementById('gov-mission').value = '';
+      document.getElementById('gov-error').classList.add('hidden');
+      document.getElementById('btn-gov-submit').onclick = () => _submitLeave('gov');
+      document.getElementById('btn-gov-cancel').onclick = () => modal.classList.add('hidden');
+    }
+  }
+
+  async function _submitLeave(type) {
+    const modal    = document.getElementById('modal-leave-' + type);
+    const errorEl  = document.getElementById(type === 'sick' ? 'sick-error' : type === 'abs' ? 'abs-error' : 'gov-error');
+
+    function showError(msg) {
+      errorEl.textContent = msg;
+      errorEl.classList.remove('hidden');
+    }
+
+    let leaveType, startDate, endDate, detail;
+
+    if (type === 'sick') {
+      startDate = document.getElementById('sick-start').value;
+      endDate   = document.getElementById('sick-end').value;
+      const reason = document.getElementById('sick-reason').value.trim();
+      const cert   = document.getElementById('sick-cert').checked;
+      if (!startDate) { showError('กรุณาระบุวันที่เริ่มลา'); return; }
+      if (!endDate)   { showError('กรุณาระบุวันที่สิ้นสุด'); return; }
+      if (endDate < startDate) { showError('วันสิ้นสุดต้องไม่ก่อนวันเริ่มลา'); return; }
+      if (!reason) { showError('กรุณาระบุสาเหตุ'); return; }
+      leaveType = 'sick';
+      detail = reason + (cert ? ' (มีใบรับรองแพทย์)' : '');
+    } else if (type === 'abs') {
+      startDate = document.getElementById('abs-start').value;
+      endDate   = document.getElementById('abs-end').value;
+      const reason = document.getElementById('abs-reason').value.trim();
+      if (!startDate) { showError('กรุณาระบุวันที่เริ่มลา'); return; }
+      if (!endDate)   { showError('กรุณาระบุวันที่สิ้นสุด'); return; }
+      if (endDate < startDate) { showError('วันสิ้นสุดต้องไม่ก่อนวันเริ่มลา'); return; }
+      if (!reason) { showError('กรุณาระบุเหตุผล'); return; }
+      leaveType = 'absence';
+      detail = reason;
+    } else if (type === 'gov') {
+      startDate = document.getElementById('gov-date').value;
+      endDate   = startDate;
+      const dest    = document.getElementById('gov-dest').value.trim();
+      const mission = document.getElementById('gov-mission').value.trim();
+      if (!startDate) { showError('กรุณาระบุวันที่'); return; }
+      if (!dest)    { showError('กรุณาระบุสถานที่'); return; }
+      if (!mission) { showError('กรุณาระบุวัตถุประสงค์'); return; }
+      leaveType = 'government';
+      detail = `สถานที่: ${dest} | ภารกิจ: ${mission}`;
+    }
+
+    errorEl.classList.add('hidden');
+
+    // เก็บ GPS แบบ silent (ไม่บังคับ)
+    let lat = null, lng = null;
+    try {
+      const pos = await Promise.race([
+        GPS.getCurrentPosition(),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000)),
+      ]);
+      lat = pos?.lat ?? null;
+      lng = pos?.lng ?? null;
+    } catch (e) {}
+
+    const submitBtn = document.getElementById('btn-' + type + '-submit');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'กำลังส่ง...';
+
+    try {
+      await API.submitLeave({ leaveType, startDate, endDate, detail, deviceFingerprint: _deviceFingerprint, lat, lng });
+      modal.classList.add('hidden');
+      toast('ส่งคำขอลาสำเร็จ', 'success');
+    } catch (e) {
+      showError('ส่งไม่สำเร็จ: ' + e.message);
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = type === 'gov' ? 'ยืนยัน' : 'ส่งคำขอลา';
     }
   }
 

@@ -3,9 +3,16 @@
 
 const SHEET_TEACHERS  = 'Teachers';
 const SHEET_ATTENDANCE = 'Attendance';
+const SHEET_LEAVE      = 'LeaveRequests';
 
-const TEACHER_HEADERS   = ['email','name','subject','faceDescriptor','snapshot','active','createdAt'];
-const ATTENDANCE_HEADERS = ['date','checkInTime','checkOutTime','email','name','subject','status','checkInMethod','checkOutMethod','workHours','lat','lng','checkOutLat','checkOutLng'];
+const TEACHER_HEADERS    = ['email','name','subject','faceDescriptor','snapshot','active','createdAt','boundFingerprint','lastSeenAt'];
+const ATTENDANCE_HEADERS = ['date','checkInTime','checkOutTime','email','name','subject','status','checkInMethod','checkOutMethod','workHours','lat','lng','checkOutLat','checkOutLng','deviceFingerprint'];
+const LEAVE_HEADERS      = ['date','email','name','leaveType','startDate','endDate','detail','submittedAt','deviceFingerprint','lat','lng'];
+
+const SHEET_MONTHLY_REPORT    = 'MonthlyReports';
+const MONTHLY_REPORT_HEADERS  = ['yearMonth','generatedAt','workingDays','totalTeachers','totalCheckIns','totalPresent','totalLate','totalAbsent','onTimeRate'];
+const MONTHLY_TRIGGER_FN_NAME = '_autoGenerateLastMonthReport';
+const MONTHLY_TRIGGER_HOUR    = 2;
 
 const ADMIN_EMAILS = [
   'hatsatorn.narinram87@gmail.com',
@@ -25,6 +32,10 @@ function doPost(e) {
       case 'getTodayAttendance': return _jsonResponse(getTodayAttendance(data));
       case 'registerTeacher':    return _jsonResponse(registerTeacher(data));
       case 'getMonthlyReport':   return _jsonResponse(getMonthlyReport(data));
+      case 'submitLeave':        return _jsonResponse(submitLeave(data));
+      case 'getMonthlyReportLog':   return _jsonResponse(getMonthlyReportLog(data));
+      case 'generateMonthlyReport':  return _jsonResponse(generateMonthlyReport(data));
+      case 'verifyAndBindDevice':    return _jsonResponse(verifyAndBindDevice(data));
       default: return _jsonResponse({ ok: false, error: 'Unknown action: ' + data.action });
     }
   } catch (err) {
@@ -51,6 +62,8 @@ function getTeachers(data) {
       try { t.faceDescriptor = JSON.parse(t.facedescriptor); } catch (e) { t.faceDescriptor = null; }
     }
     delete t.snapshot;
+    delete t.boundfingerprint;
+    delete t.lastseenat;
     return t;
   }).filter(t => t.email && String(t.active).toLowerCase() !== 'false');
 
@@ -77,7 +90,7 @@ function getMyStatus(data) {
 
 // ── Action: checkIn ──
 function checkIn(data) {
-  const { email, method, timestamp, lat, lng, displayName } = data;
+  const { email, method, timestamp, lat, lng, displayName, deviceFingerprint } = data;
   if (!email) return { ok: false, error: 'Missing email' };
 
   _ensureHeaders(SHEET_TEACHERS, TEACHER_HEADERS);
@@ -117,7 +130,8 @@ function checkIn(data) {
     date: dateStr, checkInTime: displayTime, checkOutTime: '',
     email, name: teacher.name, subject: teacher.subject || '',
     status, checkInMethod: method, checkOutMethod: '', workHours: '',
-    lat: lat || '', lng: lng || '',
+    lat: lat || '', lng: lng || '', checkOutLat: '', checkOutLng: '',
+    deviceFingerprint: deviceFingerprint || '',
   });
 
   return { ok: true, name: teacher.name, timestamp: now.toISOString(), isLate, checkInTime: displayTime };
@@ -125,7 +139,7 @@ function checkIn(data) {
 
 // ── Action: checkOut ──
 function checkOut(data) {
-  const { email, method, timestamp, lat, lng } = data;
+  const { email, method, timestamp, lat, lng, deviceFingerprint } = data;
   if (!email) return { ok: false, error: 'Missing email' };
 
   _ensureHeaders(SHEET_ATTENDANCE, ATTENDANCE_HEADERS);
@@ -161,6 +175,7 @@ function checkOut(data) {
   const whIdx   = hdrs.indexOf('workhours');
   const coLatIdx = hdrs.indexOf('checkoutlat');
   const coLngIdx = hdrs.indexOf('checkoutlng');
+  const dfIdx   = hdrs.indexOf('devicefingerprint');
 
   if (coIdx === -1) {
     return { ok: false, error: 'Schema ของ Attendance sheet ไม่ถูกต้อง — รัน resetAttendance() ใน Apps Script' };
@@ -171,9 +186,50 @@ function checkOut(data) {
   if (whIdx   !== -1) sheet.getRange(rec.rowIndex, whIdx   + 1).setValue(workHours);
   if (coLatIdx !== -1 && lat) sheet.getRange(rec.rowIndex, coLatIdx + 1).setValue(lat);
   if (coLngIdx !== -1 && lng) sheet.getRange(rec.rowIndex, coLngIdx + 1).setValue(lng);
+  if (dfIdx   !== -1 && deviceFingerprint) sheet.getRange(rec.rowIndex, dfIdx + 1).setValue(deviceFingerprint);
 
   const teacher = _findTeacher(email);
   return { ok: true, name: teacher?.name || email.split('@')[0], checkOutTime: displayTime, workHours };
+}
+
+// ── Action: submitLeave ──
+function submitLeave(data) {
+  const { email, displayName, leaveType, startDate, endDate, detail, submittedAt, deviceFingerprint, lat, lng } = data;
+  if (!email)     return { ok: false, error: 'Missing email' };
+  if (!leaveType) return { ok: false, error: 'Missing leaveType' };
+  if (!startDate) return { ok: false, error: 'Missing startDate' };
+
+  _ensureHeaders(SHEET_TEACHERS, TEACHER_HEADERS);
+  _ensureHeaders(SHEET_LEAVE, LEAVE_HEADERS);
+
+  let teacher = _findTeacher(email);
+  if (!teacher) {
+    const name = displayName || email.split('@')[0];
+    _appendRow(SHEET_TEACHERS, TEACHER_HEADERS, {
+      email, name, subject: '', faceDescriptor: '[]',
+      snapshot: '', active: true, createdAt: new Date().toISOString(),
+    });
+    teacher = { email, name };
+  }
+
+  const now     = new Date(submittedAt || new Date());
+  const dateStr = Utilities.formatDate(now, 'Asia/Bangkok', 'yyyy-MM-dd');
+
+  _appendRow(SHEET_LEAVE, LEAVE_HEADERS, {
+    date: dateStr,
+    email,
+    name: teacher.name,
+    leaveType,
+    startDate: startDate || '',
+    endDate: endDate || '',
+    detail: detail || '',
+    submittedAt: submittedAt || now.toISOString(),
+    deviceFingerprint: deviceFingerprint || '',
+    lat: lat || '',
+    lng: lng || '',
+  });
+
+  return { ok: true, name: teacher.name };
 }
 
 // ── Action: getTodayAttendance ──
@@ -236,6 +292,44 @@ function registerTeacher(data) {
   return { ok: true };
 }
 
+// ── Action: verifyAndBindDevice ──
+function verifyAndBindDevice(data) {
+  const { email, deviceFingerprint } = data;
+  if (!email || !deviceFingerprint) return { ok: false, error: 'ข้อมูลไม่ครบ' };
+
+  _ensureHeaders(SHEET_TEACHERS, TEACHER_HEADERS);
+  const sheet = _getSheet(SHEET_TEACHERS);
+  const rows  = sheet.getDataRange().getValues();
+  if (rows.length <= 1) return { ok: true }; // ยังไม่มีครูในระบบ
+
+  const hdrs        = rows[0].map(h => String(h).trim().toLowerCase());
+  const eIdx        = hdrs.indexOf('email');
+  const bfIdx       = hdrs.indexOf('boundfingerprint');
+  const lsIdx       = hdrs.indexOf('lastseenat');
+  const now         = new Date().toISOString();
+  const callerEmail = email.trim().toLowerCase();
+  let   callerRow   = -1;
+
+  // Pass 1: if this fingerprint already belongs to a different teacher → block
+  for (let i = 1; i < rows.length; i++) {
+    const rowEmail = String(rows[i][eIdx] || '').trim().toLowerCase();
+    const rowFp    = String(rows[i][bfIdx] || '').trim();
+    if (rowFp === deviceFingerprint && rowEmail !== callerEmail) {
+      return { ok: false, error: 'อุปกรณ์นี้ถูกผูกกับบัญชีครูอื่นแล้ว\nกรุณาใช้อุปกรณ์ที่เป็นของท่านเอง' };
+    }
+    if (rowEmail === callerEmail) callerRow = i;
+  }
+
+  // Pass 2: bind (or rebind) fingerprint + update lastSeenAt for caller
+  if (callerRow !== -1) {
+    if (bfIdx !== -1) sheet.getRange(callerRow + 1, bfIdx + 1).setValue(deviceFingerprint);
+    if (lsIdx !== -1) sheet.getRange(callerRow + 1, lsIdx + 1).setValue(now);
+  }
+  // callerRow === -1: teacher auto-registers on first checkIn, skip write for now
+
+  return { ok: true };
+}
+
 // ── Action: getMonthlyReport ──
 function getMonthlyReport(data) {
   _requireAdmin(data.callerEmail);
@@ -272,6 +366,116 @@ function getMonthlyReport(data) {
   }).filter(r => r.อีเมล);
 
   return { ok: true, report };
+}
+
+// ── Action: getMonthlyReportLog (admin) ──
+function getMonthlyReportLog(data) {
+  _requireAdmin(data.callerEmail);
+  _ensureHeaders(SHEET_MONTHLY_REPORT, MONTHLY_REPORT_HEADERS);
+
+  const sheet = _getSheet(SHEET_MONTHLY_REPORT);
+  if (sheet.getLastRow() <= 1) return { ok: true, rows: [] };
+
+  const rows = sheet.getDataRange().getValues();
+  const hdrs = rows[0].map(h => String(h).trim());
+  const out  = rows.slice(1).map(row => {
+    const o = {};
+    hdrs.forEach((h, i) => { o[h] = row[i]; });
+    return o;
+  }).filter(r => r.yearMonth);
+
+  out.sort((a, b) => String(b.yearMonth).localeCompare(String(a.yearMonth)));
+  return { ok: true, rows: out };
+}
+
+// ── Action: generateMonthlyReport (admin, manual upsert) ──
+function generateMonthlyReport(data) {
+  _requireAdmin(data.callerEmail);
+  const { yearMonth } = data;
+  if (!yearMonth || !/^\d{4}-\d{2}$/.test(yearMonth)) {
+    return { ok: false, error: 'yearMonth must be YYYY-MM' };
+  }
+  const summary = generateMonthlyReportLog(yearMonth);
+  return { ok: true, summary };
+}
+
+// ── Core: aggregate attendance + upsert into MonthlyReports ──
+function generateMonthlyReportLog(yearMonth) {
+  _ensureHeaders(SHEET_ATTENDANCE,     ATTENDANCE_HEADERS);
+  _ensureHeaders(SHEET_TEACHERS,       TEACHER_HEADERS);
+  _ensureHeaders(SHEET_MONTHLY_REPORT, MONTHLY_REPORT_HEADERS);
+
+  // 1) count attendance rows for the month
+  const attSheet = _getSheet(SHEET_ATTENDANCE);
+  const attRows  = attSheet.getDataRange().getValues();
+  const aHdrs    = attRows[0].map(h => String(h).trim().toLowerCase());
+  const dIdx     = aHdrs.indexOf('date');
+  const stIdx    = aHdrs.indexOf('status');
+
+  let totalPresent = 0, totalLate = 0;
+  attRows.slice(1).forEach(row => {
+    const ds = _normalizeDateCell(row[dIdx]);
+    if (!ds.startsWith(yearMonth)) return;
+    const s = String(row[stIdx] || '').toLowerCase();
+    if (s === 'present')   totalPresent++;
+    else if (s === 'late') totalLate++;
+  });
+  const totalCheckIns = totalPresent + totalLate;
+
+  // 2) count active teachers
+  const teachSheet = _getSheet(SHEET_TEACHERS);
+  const tRows      = teachSheet.getDataRange().getValues();
+  const tHdrs      = tRows[0].map(h => String(h).trim().toLowerCase());
+  const tEIdx      = tHdrs.indexOf('email');
+  const tAIdx      = tHdrs.indexOf('active');
+  const totalTeachers = tRows.slice(1).filter(
+    r => r[tEIdx] && String(r[tAIdx]).toLowerCase() !== 'false'
+  ).length;
+
+  // 3) working days (Mon-Fri) in the month
+  const [yy, mm]     = yearMonth.split('-').map(Number);
+  const daysInMonth  = new Date(yy, mm, 0).getDate();
+  let workingDays = 0;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const wd = new Date(yy, mm - 1, d).getDay();
+    if (wd >= 1 && wd <= 5) workingDays++;
+  }
+
+  // 4) absences + on-time rate
+  const expected    = totalTeachers * workingDays;
+  const totalAbsent = Math.max(0, expected - totalCheckIns);
+  const onTimeRate  = totalCheckIns > 0
+    ? (totalPresent / totalCheckIns * 100).toFixed(1) + '%'
+    : '0.0%';
+
+  const summary = {
+    yearMonth,
+    generatedAt: Utilities.formatDate(new Date(), 'Asia/Bangkok', 'yyyy-MM-dd HH:mm:ss'),
+    workingDays, totalTeachers, totalCheckIns,
+    totalPresent, totalLate, totalAbsent, onTimeRate,
+  };
+
+  _upsertMonthlyReportRow(summary);
+  return summary;
+}
+
+function _upsertMonthlyReportRow(summary) {
+  const sheet = _getSheet(SHEET_MONTHLY_REPORT);
+  const rows  = sheet.getDataRange().getValues();
+  const hdrs  = rows[0].map(h => String(h).trim());
+  const ymIdx = hdrs.indexOf('yearMonth');
+
+  let foundRow = -1;
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][ymIdx]).trim() === summary.yearMonth) { foundRow = i + 1; break; }
+  }
+
+  const rowData = MONTHLY_REPORT_HEADERS.map(h => summary[h] !== undefined ? summary[h] : '');
+  if (foundRow === -1) {
+    sheet.appendRow(rowData);
+  } else {
+    sheet.getRange(foundRow, 1, 1, rowData.length).setValues([rowData]);
+  }
 }
 
 // ── Helpers ──
@@ -414,4 +618,28 @@ function _jsonResponse(data) {
   return ContentService
     .createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ── Monthly Report Trigger (run installMonthlyReportTrigger() once from editor) ──
+function installMonthlyReportTrigger() {
+  ScriptApp.getProjectTriggers().forEach(t => {
+    if (t.getHandlerFunction() === MONTHLY_TRIGGER_FN_NAME) {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+  ScriptApp.newTrigger(MONTHLY_TRIGGER_FN_NAME)
+    .timeBased()
+    .onMonthDay(1)
+    .atHour(MONTHLY_TRIGGER_HOUR)
+    .inTimezone('Asia/Bangkok')
+    .create();
+  Logger.log('Monthly trigger installed: ' + MONTHLY_TRIGGER_FN_NAME);
+}
+
+function _autoGenerateLastMonthReport() {
+  const now  = new Date();
+  const prev = new Date(now.getFullYear(), now.getMonth(), 0);
+  const yearMonth = Utilities.formatDate(prev, 'Asia/Bangkok', 'yyyy-MM');
+  Logger.log('Auto-generating monthly report for ' + yearMonth);
+  generateMonthlyReportLog(yearMonth);
 }

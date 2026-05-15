@@ -28,13 +28,14 @@ const API = (() => {
   }
 
   // เช็คออก
-  async function checkOut({ email, method, lat, lng }) {
+  async function checkOut({ email, method, lat, lng, deviceFingerprint }) {
     const now = new Date();
     return _request('checkOut', {
       email, method,
       timestamp: now.toISOString(),
       lat: lat ?? null,
       lng: lng ?? null,
+      deviceFingerprint: deviceFingerprint ?? null,
     });
   }
 
@@ -45,7 +46,7 @@ const API = (() => {
   }
 
   // เช็คชื่อเข้างาน
-  async function checkIn({ email, method, lat, lng }) {
+  async function checkIn({ email, method, lat, lng, deviceFingerprint }) {
     const now = new Date();
     const user = Auth.getUser();
     return _request('checkIn', {
@@ -53,6 +54,24 @@ const API = (() => {
       method,          // 'face' | 'manual'
       displayName: user?.name || null,
       timestamp: now.toISOString(),
+      lat: lat ?? null,
+      lng: lng ?? null,
+      deviceFingerprint: deviceFingerprint ?? null,
+    });
+  }
+
+  // ส่งคำขอลา (ลาป่วย / ลากิจ / ไปราชการ)
+  async function submitLeave({ leaveType, startDate, endDate, detail, deviceFingerprint, lat, lng }) {
+    const user = Auth.getUser();
+    return _request('submitLeave', {
+      email: user?.email,
+      displayName: user?.name || null,
+      leaveType,
+      startDate,
+      endDate: endDate ?? null,
+      detail: detail ?? '',
+      submittedAt: new Date().toISOString(),
+      deviceFingerprint: deviceFingerprint ?? null,
       lat: lat ?? null,
       lng: lng ?? null,
     });
@@ -69,11 +88,29 @@ const API = (() => {
     return _request('registerTeacher', { name, email, subject, faceDescriptor, snapshot });
   }
 
+  // ตรวจสอบและผูก device fingerprint กับบัญชีครู
+  async function verifyAndBindDevice(deviceFingerprint) {
+    const user = Auth.getUser();
+    return _request('verifyAndBindDevice', { email: user?.email, deviceFingerprint });
+  }
+
   // ดึงรายงานรายเดือน (admin)
   async function getMonthlyReport(yearMonth) {
     const data = await _request('getMonthlyReport', { yearMonth });
     return data.report;
   }
 
-  return { getMyStatus, getTeachers, checkIn, checkOut, getTodayAttendance, registerTeacher, getMonthlyReport };
+  // ดึงประวัติรายงานรายเดือน (admin)
+  async function getMonthlyReportLog() {
+    const data = await _request('getMonthlyReportLog');
+    return data.rows;
+  }
+
+  // สร้าง/อัปเดต MonthlyReports สำหรับเดือนที่เลือก (admin)
+  async function generateMonthlyReport(yearMonth) {
+    const data = await _request('generateMonthlyReport', { yearMonth });
+    return data.summary;
+  }
+
+  return { getMyStatus, getTeachers, checkIn, checkOut, submitLeave, getTodayAttendance, registerTeacher, getMonthlyReport, getMonthlyReportLog, generateMonthlyReport, verifyAndBindDevice };
 })();

@@ -1,6 +1,6 @@
 // Service Worker — Offline support
 
-const CACHE = 'teacher-checkin-v1';
+const CACHE = 'teacher-checkin-v2';
 const PRECACHE = [
   '/',
   '/index.html',

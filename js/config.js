@@ -2,11 +2,11 @@
 
 const CONFIG = {
   // Google Apps Script Web App URL (หลัง deploy แล้ว copy มาวางตรงนี้)
-  SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbxSplsBYicuKr2IBBJeuE3oclBMy4AGkjRv0IbKmOMigyiBrnP0MmbMPu2C_fJ1Aswy/exec',
+  SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbx_DoEIQ6X0GfGE8MHV2TQb1TglarPj0jIJxmuEQfGOJDxauB1QU6A2Sh_C4R5yxwuA/exec',
 
   // Google OAuth Client ID (จาก Google Cloud Console)
   // GOOGLE_CLIENT_ID: '921804252606-5tepbu13r8q4e61d9ktcbs7tfmkpaebt.apps.googleusercontent.com',
-  GOOGLE_CLIENT_ID: '921804252606-oebjar2gqt4b7kp8j99ur3nnm5h5sc8t.apps.googleusercontent.com', //prod
+  GOOGLE_CLIENT_ID: '921804252606-5tepbu13r8q4e61d9ktcbs7tfmkpaebt.apps.googleusercontent.com', //prod
 
   // Domain อีเมลโรงเรียน (ถ้าไม่จำกัด domain ให้ใส่ '')
   SCHOOL_EMAIL_DOMAIN: '',
