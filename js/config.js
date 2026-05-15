@@ -18,11 +18,11 @@ const CONFIG = {
   SCHOOL_LAT: 16.4170402,
   SCHOOL_LNG: 103.3634167,
   // รัศมี GPS (เมตร) — 100 = ต้องอยู่ในรัศมี 100 เมตร
-  GPS_RADIUS_METERS: 300,
+  GPS_RADIUS_METERS: 400,
 
   // เวลาเริ่มงาน (ชั่วโมง:นาที) — ถ้ามาหลังนี้ถือว่าสาย
   WORK_START_HOUR: 8,
-  WORK_START_MIN: 0,
+  WORK_START_MIN: 30,
 
   // ใช้ GPS จริงไหม — false = ปิด GPS check (สำหรับ dev/test)
   ENABLE_GPS_CHECK: true,
