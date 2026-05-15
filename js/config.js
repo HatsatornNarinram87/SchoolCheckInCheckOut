@@ -12,10 +12,13 @@ const CONFIG = {
   SCHOOL_EMAIL_DOMAIN: '',
 
   // ตำแหน่งโรงเรียน (latitude, longitude)
-  SCHOOL_LAT: 16.3950333,
-  SCHOOL_LNG: 103.3685648,
+  // SCHOOL_LAT: 16.3950333,
+  // SCHOOL_LNG: 103.3685648,
+  /// test
+  SCHOOL_LAT: 16.400384,
+  SCHOOL_LNG: 103.3732096,
   // รัศมี GPS (เมตร) — 100 = ต้องอยู่ในรัศมี 100 เมตร
-  GPS_RADIUS_METERS: 70,
+  GPS_RADIUS_METERS: 100,
 
   // เวลาเริ่มงาน (ชั่วโมง:นาที) — ถ้ามาหลังนี้ถือว่าสาย
   WORK_START_HOUR: 8,
