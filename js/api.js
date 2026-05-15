@@ -89,9 +89,15 @@ const API = (() => {
   }
 
   // ตรวจสอบและผูก device fingerprint กับบัญชีครู
+  // ใช้ fetch โดยตรง (ไม่ผ่าน _request) เพราะต้องการให้ ok:false return แทน throw
   async function verifyAndBindDevice(deviceFingerprint) {
     const user = Auth.getUser();
-    return _request('verifyAndBindDevice', { email: user?.email, deviceFingerprint });
+    const body = { action: 'verifyAndBindDevice', email: user?.email, deviceFingerprint, callerEmail: user?.email };
+    const res  = await fetch(BASE, { method: 'POST', body: JSON.stringify(body) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const text = await res.text();
+    try { return JSON.parse(text); } catch (e) { throw new Error('Response ไม่ใช่ JSON'); }
+    // คืน { ok, error } โดยตรง ไม่ throw เมื่อ ok:false เพื่อให้ _postLogin จัดการ block เอง
   }
 
   // ดึงรายงานรายเดือน (admin)

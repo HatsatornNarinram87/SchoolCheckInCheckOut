@@ -104,6 +104,8 @@ function checkIn(data) {
     _appendRow(SHEET_TEACHERS, TEACHER_HEADERS, {
       email, name, subject: '', faceDescriptor: '[]',
       snapshot: '', active: true, createdAt: new Date().toISOString(),
+      boundFingerprint: deviceFingerprint || '',
+      lastSeenAt: deviceFingerprint ? new Date().toISOString() : '',
     });
     teacher = { email, name, subject: '' };
   }
@@ -491,24 +493,21 @@ function _ensureHeaders(sheetName, headers) {
     _setDateColumnAsText(sheet);
     return;
   }
-  // อ่าน header ปัจจุบันแบบ case-insensitive
-  const lastCol = Math.max(sheet.getLastColumn(), headers.length);
-  const firstRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
-  const existing = firstRow.map(h => String(h).trim().toLowerCase());
-  const expected = headers.map(h => h.toLowerCase());
 
-  // ตรวจว่า header ที่ expected มีครบในแถวแรกไหม
-  const allPresent = expected.every(h => existing.indexOf(h) !== -1);
-  if (allPresent) return;
+  const currentCols = sheet.getLastColumn();
+  const firstRow    = sheet.getRange(1, 1, 1, currentCols).getValues()[0];
+  const existing    = firstRow.map(h => String(h).trim().toLowerCase());
+  const expected    = headers.map(h => h.toLowerCase());
 
-  // ── Schema mismatch: backup ข้อมูลเก่า + เขียน header ใหม่ ──
-  Logger.log('Schema mismatch in ' + sheetName + '. Backing up and rebuilding...');
-  if (sheet.getLastRow() > 1) {
-    const backupName = sheetName + '_backup_' + Utilities.formatDate(new Date(), 'Asia/Bangkok', 'yyyyMMdd_HHmmss');
-    sheet.copyTo(SpreadsheetApp.getActiveSpreadsheet()).setName(backupName);
-    sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).clearContent();
-  }
-  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  // Find which headers are missing
+  const missing = expected.filter(h => !existing.includes(h));
+  if (missing.length === 0) return; // all present, nothing to do
+
+  // Append only the missing column headers — preserves all existing data rows
+  missing.forEach((h, i) => {
+    const originalName = headers[expected.indexOf(h)];
+    sheet.getRange(1, currentCols + 1 + i).setValue(originalName);
+  });
   _setDateColumnAsText(sheet);
 }
 

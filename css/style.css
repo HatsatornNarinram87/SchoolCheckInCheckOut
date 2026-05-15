@@ -98,6 +98,10 @@ body {
 }
 .btn-google:hover { background: #F5F5F5; border-color: #BDBDBD; }
 .btn-google img { width: 20px; height: 20px; }
+#google-signin-btn {
+  display: flex;
+  justify-content: center;
+}
 .login-note { font-size: 12px; color: var(--text-secondary); margin-top: 16px; }
 
 /* ── Check Cards (GPS / Face) ── */

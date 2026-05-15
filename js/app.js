@@ -15,6 +15,18 @@ const App = (() => {
     document.getElementById('screen-' + id).classList.add('active');
   }
 
+  function _showLoginScreen() {
+    Auth.signOut();
+    showScreen('login');
+    const btn = document.getElementById('google-signin-btn');
+    if (btn) btn.innerHTML = ''; // clear previous iframe so renderButton works
+    try {
+      google.accounts.id.renderButton(btn, {
+        theme: 'outline', size: 'large', shape: 'pill', locale: 'th', width: 280,
+      });
+    } catch (e) {}
+  }
+
   function toast(msg, type = '', duration = 3000) {
     const el = document.getElementById('toast');
     el.textContent = msg;
@@ -275,16 +287,7 @@ const App = (() => {
       document.querySelector('#screen-loading p').textContent = 'กำลังบันทึกการออกงาน...';
       await _doCheckout(_currentUser.email, 'manual');
     };
-    document.getElementById('btn-action-logout').onclick = () => {
-      Auth.signOut();
-      showScreen('login');
-      try {
-        google.accounts.id.renderButton(
-          document.getElementById('google-signin-btn'),
-          { theme: 'outline', size: 'large', shape: 'pill', locale: 'th', width: 280 }
-        );
-      } catch (e) {}
-    };
+    document.getElementById('btn-action-logout').onclick = _showLoginScreen;
 
     _setupLeaveButtons();
   }
@@ -406,23 +409,13 @@ const App = (() => {
       workhours.classList.add('hidden');
     }
 
-    document.getElementById('btn-done').onclick = () => {
-      Auth.signOut();
-      showScreen('login');
-      // Re-render Google Sign-In button หลัง signout
-      try {
-        google.accounts.id.renderButton(
-          document.getElementById('google-signin-btn'),
-          { theme: 'outline', size: 'large', shape: 'pill', locale: 'th', width: 280 }
-        );
-      } catch (e) {}
-    };
+    document.getElementById('btn-done').onclick = _showLoginScreen;
   }
 
   // ── Admin Dashboard ──
   async function _showAdmin() {
     showScreen('admin');
-    document.getElementById('btn-logout').onclick = () => { Auth.signOut(); showScreen('login'); };
+    document.getElementById('btn-logout').onclick = _showLoginScreen;
     _setupAdminTabs();
     await _loadTodayAttendance();
     document.getElementById('report-month').value = new Date().toISOString().slice(0, 7);
