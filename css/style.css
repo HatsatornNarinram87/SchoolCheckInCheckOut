@@ -680,6 +680,63 @@ body {
   padding-top: 8px;
 }
 
+/* ── Teacher Report Cards ── */
+.teacher-report-card {
+  background: var(--card-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-bottom: 16px;
+  overflow: hidden;
+  animation: slideUp 0.3s var(--ease) both;
+}
+.teacher-report-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--card-border);
+}
+.teacher-report-title { display: flex; flex-direction: column; gap: 2px; }
+.teacher-name { font-size: 16px; font-weight: 700; color: var(--text); }
+.teacher-subject { font-size: 13px; color: var(--text-secondary); }
+.teacher-stats { display: flex; flex-wrap: wrap; gap: 6px; }
+.stat-badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+.badge-present { background: #D1FAE5; color: #065F46; }
+.badge-late    { background: #FEF3C7; color: #92400E; }
+.badge-leave   { background: #DBEAFE; color: #1E40AF; }
+.badge-absent  { background: #FEE2E2; color: #991B1B; }
+.day-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.day-table th {
+  background: rgba(124,58,237,0.05);
+  color: var(--text-secondary);
+  font-weight: 600;
+  padding: 8px 14px;
+  text-align: left;
+  font-size: 12px;
+}
+.day-table td { padding: 7px 14px; border-top: 1px solid rgba(0,0,0,0.04); }
+.day-present td:last-child { color: var(--success); }
+.day-late    { background: rgba(245,158,11,0.04); }
+.day-late    td:last-child { color: var(--warning); }
+.day-leave   { background: rgba(59,130,246,0.04); }
+.day-leave   td:last-child { color: #1E40AF; }
+.day-absent  { background: rgba(239,68,68,0.04); }
+.day-absent  td:last-child { color: var(--error); }
+
 /* ── Animations ── */
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(10px); }
@@ -730,6 +787,8 @@ body {
   .summary-cards { gap: 10px; }
   .summary-card .count { font-size: 24px; }
   .report-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .teacher-report-header { flex-direction: column; }
+  .day-table th, .day-table td { padding: 6px 12px; font-size: 12px; }
 }
 
 /* ── Responsive: phone ── */

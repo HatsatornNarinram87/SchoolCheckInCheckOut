@@ -6,7 +6,9 @@
       "Bash(git push *)",
       "Bash(Get-ChildItem -Path \"D:\\\\Code\\\\RecordDaily\" -Recurse -File)",
       "Bash(Select-Object FullName)",
-      "Bash(dir *)"
+      "Bash(dir *)",
+      "Bash(Get-ChildItem -Path \"D:\\\\Code\\\\RecordDaily\" -Recurse -Name)",
+      "Bash(Select-Object -First 50)"
     ]
   }
 }

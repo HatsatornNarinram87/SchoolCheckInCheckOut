@@ -556,17 +556,63 @@ const App = (() => {
     }
   }
 
+  const _THAI_MONTHS_SHORT = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  function _fmtDate(iso) {
+    const [, , d, mo] = iso.match(/(\d{4})-(\d{2})-(\d{2})/) || [];
+    return d ? `${parseInt(d)} ${_THAI_MONTHS_SHORT[parseInt(mo) - 1]}` : iso;
+  }
+  function _fmtLeaveRange(range) {
+    if (!range) return '';
+    const [s, e] = range.split('|');
+    if (s === e) return _fmtDate(s);
+    const [sy, sm] = s.split('-'); const [ey, em] = e.split('-');
+    if (sy === ey && sm === em) return `${parseInt(s.split('-')[2])}–${parseInt(e.split('-')[2])} ${_THAI_MONTHS_SHORT[parseInt(sm) - 1]}`;
+    return `${_fmtDate(s)}–${_fmtDate(e)}`;
+  }
+  const _LEAVE_LABEL = { sick: '🏥 ลาป่วย', ลาป่วย: '🏥 ลาป่วย', absence: '📋 ลากิจ', ลากิจ: '📋 ลากิจ', government: '🏛️ ราชการ', ราชการ: '🏛️ ราชการ' };
+  function _leaveLabel(type) { return _LEAVE_LABEL[type] || ('📄 ' + type); }
+
   function _renderReportTable(report) {
     if (!report?.length) { document.getElementById('report-table').innerHTML = '<p>ไม่มีข้อมูล</p>'; return; }
-    const headers = Object.keys(report[0]);
-    document.getElementById('report-table').innerHTML = `
-      <table class="responsive-table">
-        <thead><tr>${headers.map((h) => `<th>${h}</th>`).join('')}</tr></thead>
-        <tbody>${report.map((row) =>
-          `<tr>${headers.map((h) => `<td data-label="${h}">${row[h] ?? '—'}</td>`).join('')}</tr>`
-        ).join('')}</tbody>
-      </table>
-    `;
+    document.getElementById('report-table').innerHTML = report.map(t => {
+      const rows = t.days.map(d => {
+        let note = '', cls = '';
+        if (d.status === 'present') {
+          note = '✓ ตรงเวลา'; cls = 'day-present';
+        } else if (d.status === 'late') {
+          note = '⚠ สาย'; cls = 'day-late';
+        } else if (d.status === 'leave') {
+          note = `${_leaveLabel(d.leaveType)} (${_fmtLeaveRange(d.leaveRange)})`; cls = 'day-leave';
+        } else {
+          note = '✗ ขาด'; cls = 'day-absent';
+        }
+        if (d.earlyCheckout) note += ` · ออกก่อน: ${d.earlyCheckout}`;
+        return `<tr class="${cls}">
+          <td>${_fmtDate(d.date)}</td>
+          <td>${d.checkIn || '—'}</td>
+          <td>${d.checkOut || '—'}</td>
+          <td>${note}</td>
+        </tr>`;
+      }).join('');
+      return `<div class="teacher-report-card">
+        <div class="teacher-report-header">
+          <div class="teacher-report-title">
+            <span class="teacher-name">${t.ชื่อ}</span>
+            <span class="teacher-subject">${t.วิชา}</span>
+          </div>
+          <div class="teacher-stats">
+            <span class="stat-badge badge-present">ตรงเวลา ${t.มาตรงเวลา}</span>
+            <span class="stat-badge badge-late">สาย ${t.มาสาย}</span>
+            <span class="stat-badge badge-leave">ลา ${t.วันลา}</span>
+            <span class="stat-badge badge-absent">ขาด ${t.ขาด}</span>
+          </div>
+        </div>
+        <table class="day-table">
+          <thead><tr><th>วันที่</th><th>เข้า</th><th>ออก</th><th>หมายเหตุ</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+    }).join('');
   }
 
   // ── Report Log ──

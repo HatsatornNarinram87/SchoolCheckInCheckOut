@@ -2,21 +2,22 @@
 
 const CONFIG = {
   // Google Apps Script Web App URL (หลัง deploy แล้ว copy มาวางตรงนี้)
-  SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbxSTTiqxOQMpE1QmEy75_x9SS_Bq7VE7TF35DKERh622zJdtILrcOob-sZgqd6lEkMI/exec',
+  SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbxaE4bDRRdOEvbQM-W_UDHM4EStBLE_C83VEGKHNkpIIGsGVzZYlRXOdOhyzQLNIB0P/exec',
 
   // Google OAuth Client ID (จาก Google Cloud Console)
-  // GOOGLE_CLIENT_ID: '921804252606-5tepbu13r8q4e61d9ktcbs7tfmkpaebt.apps.googleusercontent.com',
-  GOOGLE_CLIENT_ID: '921804252606-oebjar2gqt4b7kp8j99ur3nnm5h5sc8t.apps.googleusercontent.com', //prod
+  GOOGLE_CLIENT_ID: '921804252606-5tepbu13r8q4e61d9ktcbs7tfmkpaebt.apps.googleusercontent.com',
+  // GOOGLE_CLIENT_ID: '921804252606-oebjar2gqt4b7kp8j99ur3nnm5h5sc8t.apps.googleusercontent.com', //prod
 
   // Domain อีเมลโรงเรียน (ถ้าไม่จำกัด domain ให้ใส่ '')
   SCHOOL_EMAIL_DOMAIN: '',
 
   // ตำแหน่งโรงเรียน (latitude, longitude)
-  // SCHOOL_LAT: 16.3950333,
-  // SCHOOL_LNG: 103.3685648,
+  // 16.3960713,103.36999 /prod
+  SCHOOL_LAT: 16.3960713,
+  SCHOOL_LNG: 103.36999,
   /// test16.4170402,103.3634167
-  SCHOOL_LAT: 16.4170402,
-  SCHOOL_LNG: 103.3634167,
+  // SCHOOL_LAT: 16.4170402,
+  // SCHOOL_LNG: 103.3634167,
   // รัศมี GPS (เมตร) — 100 = ต้องอยู่ในรัศมี 100 เมตร
   GPS_RADIUS_METERS: 400,
 

@@ -361,36 +361,124 @@ function verifyAndBindDevice(data) {
 function getMonthlyReport(data) {
   _requireAdmin(data.callerEmail);
   const { yearMonth } = data;
+  const [yy, mm] = yearMonth.split('-').map(Number);
 
-  const attRows   = _getSheet(SHEET_ATTENDANCE).getDataRange().getValues();
-  const teachRows = _getSheet(SHEET_TEACHERS).getDataRange().getValues();
+  // 1) Attendance → attMap[email][date]
+  const attRows  = _getSheet(SHEET_ATTENDANCE).getDataRange().getValues();
+  const aHdrs    = attRows[0].map(h => String(h).trim().toLowerCase());
+  const aDIdx    = aHdrs.indexOf('date');
+  const aEIdx    = aHdrs.indexOf('email');
+  const aStIdx   = aHdrs.indexOf('status');
+  const aCiIdx   = aHdrs.indexOf('checkintime');
+  const aCoIdx   = aHdrs.indexOf('checkouttime');
+  const aEcdIdx  = aHdrs.indexOf('earlycheckoutdetail');
 
-  const aHdrs = attRows[0].map(h => String(h).trim().toLowerCase());
-  const aDIdx = aHdrs.indexOf('date');
-  const aEIdx = aHdrs.indexOf('email');
-  const aStIdx = aHdrs.indexOf('status');
-
-  const monthMap = {};
+  const attMap = {};
   attRows.slice(1).forEach(row => {
     const dateStr = _normalizeDateCell(row[aDIdx]);
     if (!dateStr.startsWith(yearMonth)) return;
     const em = String(row[aEIdx]).trim().toLowerCase();
-    if (!monthMap[em]) monthMap[em] = [];
-    monthMap[em].push(row[aStIdx]);
+    if (!attMap[em]) attMap[em] = {};
+    attMap[em][dateStr] = {
+      checkIn:      aCiIdx  !== -1 ? _normalizeTimeCell(row[aCiIdx])  : '',
+      checkOut:     aCoIdx  !== -1 ? _normalizeTimeCell(row[aCoIdx])  : '',
+      status:       aStIdx  !== -1 ? String(row[aStIdx]).trim()       : '',
+      earlyCheckout: aEcdIdx !== -1 ? String(row[aEcdIdx]).trim()     : '',
+    };
   });
 
-  const hdrs   = teachRows[0].map(h => String(h).trim().toLowerCase());
+  // 2) Leave → leaveMap[email] = [{ leaveType, startDate, endDate }]
+  const leaveSheet = _getSheet(SHEET_LEAVE);
+  const leaveRows  = leaveSheet.getLastRow() > 1 ? leaveSheet.getDataRange().getValues() : [LEAVE_HEADERS];
+  const lHdrs      = leaveRows[0].map(h => String(h).trim().toLowerCase());
+  const lEIdx      = lHdrs.indexOf('email');
+  const lTIdx      = lHdrs.indexOf('leavetype');
+  const lSIdx      = lHdrs.indexOf('startdate');
+  const lNIdx      = lHdrs.indexOf('enddate');
+
+  const monthStart = yearMonth + '-01';
+  const monthEnd   = yearMonth + '-31';
+  const leaveMap = {};
+  leaveRows.slice(1).forEach(row => {
+    const em    = String(row[lEIdx]).trim().toLowerCase();
+    const start = _normalizeDateCell(row[lSIdx]);
+    const end   = _normalizeDateCell(row[lNIdx]) || start;
+    if (end < monthStart || start > monthEnd) return;
+    if (!leaveMap[em]) leaveMap[em] = [];
+    leaveMap[em].push({ leaveType: lTIdx !== -1 ? String(row[lTIdx]).trim() : '', startDate: start, endDate: end });
+  });
+
+  // 3) Workdays in the month (Mon–Fri)
+  const daysInMonth = new Date(yy, mm, 0).getDate();
+  const workdays = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const wd = new Date(yy, mm - 1, d).getDay();
+    if (wd >= 1 && wd <= 5) {
+      workdays.push(yy + '-' + String(mm).padStart(2, '0') + '-' + String(d).padStart(2, '0'));
+    }
+  }
+
+  // 4) Build per-teacher report
+  const teachRows = _getSheet(SHEET_TEACHERS).getDataRange().getValues();
+  const tHdrs     = teachRows[0].map(h => String(h).trim().toLowerCase());
+
   const report = teachRows.slice(1).map(row => {
     const t = {};
-    hdrs.forEach((h, i) => { t[h] = row[i]; });
-    const statuses = monthMap[String(t.email).trim().toLowerCase()] || [];
+    tHdrs.forEach((h, i) => { t[h] = row[i]; });
+    if (!t.email) return null;
+
+    const em       = String(t.email).trim().toLowerCase();
+    const attByDay = attMap[em]   || {};
+    const leaves   = leaveMap[em] || [];
+
+    let cntPresent = 0, cntLate = 0, cntLeave = 0, cntAbsent = 0;
+    const days = [];
+
+    workdays.forEach(dateStr => {
+      const rec = attByDay[dateStr];
+      if (rec) {
+        const st = rec.status.toLowerCase();
+        if (st === 'present' || st === 'late') {
+          if (st === 'present') cntPresent++; else cntLate++;
+          days.push({
+            date: dateStr, checkIn: rec.checkIn || null, checkOut: rec.checkOut || null,
+            status: st, leaveType: null,
+            earlyCheckout: rec.earlyCheckout || null,
+          });
+        } else {
+          // status is a leave type recorded by submitLeave
+          cntLeave++;
+          const lv = leaves.find(l => l.startDate <= dateStr && dateStr <= l.endDate);
+          days.push({
+            date: dateStr, checkIn: null, checkOut: null, status: 'leave',
+            leaveType: rec.status,
+            leaveRange: lv ? lv.startDate + '|' + lv.endDate : dateStr + '|' + dateStr,
+            earlyCheckout: null,
+          });
+        }
+        return;
+      }
+      // No attendance record — check leave requests
+      const lv = leaves.find(l => l.startDate <= dateStr && dateStr <= l.endDate);
+      if (lv) {
+        cntLeave++;
+        days.push({
+          date: dateStr, checkIn: null, checkOut: null, status: 'leave',
+          leaveType: lv.leaveType, leaveRange: lv.startDate + '|' + lv.endDate,
+          earlyCheckout: null,
+        });
+        return;
+      }
+      cntAbsent++;
+      days.push({ date: dateStr, checkIn: null, checkOut: null, status: 'absent', leaveType: null, earlyCheckout: null });
+    });
+
     return {
       ชื่อ: t.name, อีเมล: t.email, วิชา: t.subject || '',
-      มาตรงเวลา: statuses.filter(s => s === 'present').length,
-      มาสาย:     statuses.filter(s => s === 'late').length,
-      วันทำงาน:  statuses.filter(s => s === 'present' || s === 'late').length,
+      มาตรงเวลา: cntPresent, มาสาย: cntLate, วันลา: cntLeave, ขาด: cntAbsent,
+      days,
     };
-  }).filter(r => r.อีเมล);
+  }).filter(Boolean);
 
   return { ok: true, report };
 }
