@@ -132,7 +132,7 @@ function checkIn(data) {
   // ตรวจสาย — เปรียบเทียบใน timezone Asia/Bangkok เพื่อหลีกเลี่ยง UTC offset
   const bkkTime = Utilities.formatDate(now, 'Asia/Bangkok', 'HH:mm');
   const [bkkH, bkkM] = bkkTime.split(':').map(Number);
-  const isLate = (bkkH * 60 + bkkM) > (8 * 60 + 0);
+  const isLate = (bkkH * 60 + bkkM) > (8 * 60 + 30);
   const status = isLate ? 'late' : 'present';
 
   _appendRow(SHEET_ATTENDANCE, ATTENDANCE_HEADERS, {

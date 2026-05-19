@@ -2,7 +2,7 @@
 
 const CONFIG = {
   // Google Apps Script Web App URL (หลัง deploy แล้ว copy มาวางตรงนี้)
-  SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbxaE4bDRRdOEvbQM-W_UDHM4EStBLE_C83VEGKHNkpIIGsGVzZYlRXOdOhyzQLNIB0P/exec',
+  SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbw-L7cYDoDYtE1ANWBxoWMJs8JTPS0ipN70jas_O0vomOOjGA0aUuTJayhNMKvdzBZ_/exec',
 
   // Google OAuth Client ID (จาก Google Cloud Console)
   // GOOGLE_CLIENT_ID: '921804252606-5tepbu13r8q4e61d9ktcbs7tfmkpaebt.apps.googleusercontent.com',
