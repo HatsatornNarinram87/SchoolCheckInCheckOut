@@ -450,7 +450,10 @@ const App = (() => {
     document.getElementById('success-name').textContent = data.name || _currentUser?.name || _currentUser?.email?.split('@')[0];
 
     const timeVal = isCheckout ? data.checkOutTime : data.checkInTime;
-    const time = timeVal || new Date(data.timestamp || Date.now()).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+    const recordedAt = data.timestamp ? new Date(data.timestamp) : null;
+    const time = timeVal || (recordedAt && !Number.isNaN(recordedAt.getTime())
+      ? recordedAt.toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hour12: false })
+      : 'ไม่พบเวลาที่บันทึก');
     document.getElementById('success-time').textContent = time;
 
     const badge = document.getElementById('success-type');
