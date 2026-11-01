@@ -29,10 +29,9 @@ const API = (() => {
 
   // เช็คออก
   async function checkOut({ email, method, lat, lng, deviceFingerprint, earlyCheckoutDetail }) {
-    const now = new Date();
+    // Omit timestamp so the backend uses its clock, independent of device settings.
     return _request('checkOut', {
       email, method,
-      timestamp: now.toISOString(),
       lat: lat ?? null,
       lng: lng ?? null,
       deviceFingerprint: deviceFingerprint ?? null,
@@ -48,13 +47,12 @@ const API = (() => {
 
   // เช็คชื่อเข้างาน
   async function checkIn({ email, method, lat, lng, deviceFingerprint }) {
-    const now = new Date();
+    // Omit timestamp so the backend uses its clock, independent of device settings.
     const user = Auth.getUser();
     return _request('checkIn', {
       email,
       method,          // 'face' | 'manual'
       displayName: user?.name || null,
-      timestamp: now.toISOString(),
       lat: lat ?? null,
       lng: lng ?? null,
       deviceFingerprint: deviceFingerprint ?? null,
